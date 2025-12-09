@@ -1,158 +1,148 @@
 # SOLARIA Digital Field Operations
 
-> **AI-Powered Digital Construction Management System**
-> 
-> *"Digital Construction, Intelligence First"*
+**AI-Powered Software Project Management Platform**
 
-## 🚀 Concepto Clarificado
+A comprehensive platform that leverages artificial intelligence to manage software development projects through intelligent automation and real-time collaboration.
 
-**NO es una oficina de construcción física** - Es una **oficina de construcción digital** que utiliza la analogía de la construcción física para gestionar proyectos de software.
+## 🎯 Overview
 
-### 🏗️ Metáfora de Construcción Digital
-- **Proyectos de Software** = **Obras de Construcción**
-- **Sprints/Features** = **Fases de Construcción**
-- **Developers** = **Obreros Digitales**
-- **Code/Features** = **Materiales de Construcción**
-- **Bugs/Issues** = **Problemas de Construcción**
-- **Deployment** = **Entrega de Obra**
-- **Technical Debt** = **Deuda Técnica (como deuda de construcción)**
+SOLARIA Digital Field Operations is an advanced project management system designed specifically for software development teams. It combines AI-powered agents, real-time analytics, and automated workflows to streamline the entire software development lifecycle.
 
-## 🤖 Agentes de IA Virtuales
+### Key Features
 
-Los agentes son **asistentes virtuales** (Claude/Codex) que se integran en el dashboard:
+- **AI Agent Coordination**: Virtual agents for specialized development tasks
+- **Real-time Dashboard**: Live project monitoring and analytics
+- **Automated Project Analysis**: Repository scanning and configuration
+- **Task Management**: Intelligent task assignment and tracking
+- **Performance Metrics**: Comprehensive KPIs and analytics
+- **WebSocket Integration**: Real-time updates and collaboration
 
-### Agentes Principales
-- **👷 Project Manager** - Gestión general del proyecto
-- **🏗️ Architect** - Diseño y arquitectura del software
-- **👨‍💻 Developer** - Programación y desarrollo
-- **🧪 Tester** - Control de calidad y testing
-- **📊 Analyst** - Análisis de requisitos y métricas
-- **🔧 DevOps** - Despliegue y operaciones
+## 🏗️ Architecture
 
-### Integración con IA Externa
-- **Claude Code** - Para desarrollo y arquitectura
-- **GitHub Copilot** - Para asistencia de código
-- **Codex** - Para generación de código
-- **ChatGPT** - Para análisis y documentación
+### Core Components
 
-## 🎯 Flujo de Trabajo
+#### AI Agents
+- **Project Manager**: Overall project coordination and planning
+- **Architect**: System design and technical architecture
+- **Developer**: Code implementation and feature development
+- **Tester**: Quality assurance and automated testing
+- **Analyst**: Requirements analysis and metrics reporting
+- **DevOps**: Deployment and infrastructure management
 
-### 1. Ingestión Automática del Repositorio
+#### Technology Stack
+- **Frontend**: React 18 + Vite + TailwindCSS
+- **Backend**: Node.js + Express + Socket.IO
+- **Database**: SQLite with RESTful API
+- **Real-time**: WebSocket communication
+- **Containerization**: Docker + Docker Compose
+
+#### External AI Integration
+- **Claude Code**: Advanced code generation and architecture
+- **GitHub Copilot**: Intelligent code assistance
+- **OpenAI Codex**: Automated code completion
+- **ChatGPT**: Documentation and analysis
+
+## 🚀 Workflow
+
+### 1. Repository Analysis
 ```bash
-# AI lee el repo y configura automáticamente
+# Automated repository analysis and setup
 npm run auto-deploy --repo=https://github.com/user/project
 ```
 
-### 2. Análisis y Configuración
-- 📖 Lee README.md y documentación
-- 🏗️ Identifica tipo de proyecto (web, mobile, backend, etc.)
-- 📋 Extrae requisitos y especificaciones
-- 👥 Configura equipo de agentes virtuales
-- 📊 Establece métricas y KPIs
+### 2. Project Configuration
+- **Documentation Analysis**: README.md and technical docs parsing
+- **Project Type Detection**: Web, mobile, backend, or full-stack identification
+- **Requirements Extraction**: Automated specification gathering
+- **Agent Team Setup**: Specialized AI agent configuration
+- **Metrics Configuration**: Custom KPIs and analytics setup
 
-### 3. Dashboard de Gestión
-- 📋 **Task Board** - Como tablero de obra
-- 📈 **Progress Charts** - Como gráficos de avance
-- 👥 **Team Management** - Como gestión de obreros
-- 🐛 **Issue Tracking** - Como control de problemas
-- 📊 **Analytics** - Como informes de obra
+### 3. Dashboard Management
+- **Task Board**: Visual project management interface
+- **Progress Analytics**: Real-time charts and metrics
+- **Team Collaboration**: Agent coordination and communication
+- **Issue Tracking**: Bug and feature request management
+- **Performance Reports**: Comprehensive analytics dashboard
 
-### 4. Ejecución con Agentes IA
-Los agentes pueden:
-- ✅ **Asumir tareas** del backlog
-- 🔨 **Completar features** como si fueran "materiales"
-- 🐛 **Resolver bugs** como si fueran "problemas de construcción"
-- 📝 **Documentar** como si fueran "informes de obra"
-- 🤝 **Coordinar** con otros agentes
+### 4. AI Agent Execution
+Agents provide automated assistance for:
+- **Task Assignment**: Intelligent workload distribution
+- **Feature Development**: Automated code generation
+- **Bug Resolution**: Automated debugging and fixes
+- **Documentation**: Auto-generated technical documentation
+- **Cross-agent Coordination**: Collaborative problem solving
 
-## 🏢 Estructura del Proyecto Digital
+## 📁 Project Structure
 
 ```
 solaria-digital-field-operations/
-├── 📁 agents/                    # Configuración de agentes IA
-│   ├── project-manager/          # 👷 Gestor de proyecto
-│   ├── architect/               # 🏗️ Arquitecto de software
-│   ├── developer/               # 👨‍💻 Desarrollador
-│   ├── tester/                  # 🧪 Tester de QA
-│   ├── analyst/                 # 📊 Analista
-│   └── devops/                  # 🔧 Ingeniero de DevOps
-├── 📁 dashboard/                 # Panel de gestión principal
+├── backend/                     # Node.js API Server
+│   ├── server.js               # Main application server
+│   └── package.json            # Backend dependencies
+├── frontend/                    # React Dashboard
 │   ├── src/
-│   │   ├── components/          # Componentes React
-│   │   ├── pages/              # Páginas del dashboard
-│   │   └── hooks/              # Hooks personalizados
-│   └── public/                 # Assets estáticos
-├── 📁 backend/                   # API Node.js
-│   ├── src/
-│   │   ├── controllers/        # Controladores API
-│   │   ├── models/             # Modelos de datos
-│   │   ├── services/           # Lógica de negocio
-│   │   └── middleware/         # Middleware
-│   └── routes/                 # Rutas API
-├── 📁 ai-integration/             # Integración con IA externa
-│   ├── claude/                 # Conexión Claude Code
-│   ├── codex/                 # Conexión Codex
-│   ├── copilot/                # Conexión GitHub Copilot
-│   └── chatgpt/                # Conexión ChatGPT
-├── 📁 templates/                 # Plantillas de proyectos
-│   ├── web-app/               # Plantilla app web
-│   ├── mobile-app/             # Plantilla app móvil
-│   ├── backend-api/            # Plantilla backend
-│   └── full-stack/             # Plantilla full-stack
-└── 📁 scripts/                   # Scripts de automatización
-    ├── auto-deploy.js          # Despliegue automático
-    ├── repo-analyzer.js        # Análisis de repositorios
-    ├── agent-coordinator.js     # Coordinación de agentes
-    └── task-manager.js         # Gestión de tareas
+│   │   ├── components/         # Reusable UI components
+│   │   ├── pages/             # Dashboard pages
+│   │   ├── contexts/          # React contexts
+│   │   └── main.jsx           # Application entry point
+│   ├── public/                # Static assets
+│   └── package.json           # Frontend dependencies
+├── scripts/                     # Automation Scripts
+│   ├── ai-agent-coordinator.js # Agent management system
+│   ├── auto-deploy.js          # Repository deployment
+│   ├── project-analyzer.js     # Code analysis tools
+│   └── agent-setup.js          # Agent configuration
+├── docker-compose.yml           # Container orchestration
+├── package.json                # Root package configuration
+└── README.md                   # Project documentation
 ```
 
-## 🎮 Dashboard de Gestión Digital
+## 📊 Dashboard Features
 
-### Task Board (Tablero de Obra Digital)
+### Task Management
 ```javascript
-// Las tareas se muestran como "actividades de construcción"
+// Task structure with intelligent assignment
 const tasks = [
   {
     id: 'TASK-001',
-    title: 'Construir API de autenticación',
+    title: 'Implement authentication API',
     type: 'feature',
-    status: 'en-construccion',
+    status: 'in-progress',
     assignee: 'developer-agent',
-    priority: 'alta',
-    estimated: '3 dias',
-    materials: ['nodejs', 'express', 'jwt'],
-    dependencies: ['diseño-de-base-de-datos']
+    priority: 'high',
+    estimated: '3 days',
+    technologies: ['nodejs', 'express', 'jwt'],
+    dependencies: ['database-schema-design']
   },
   {
     id: 'TASK-002', 
-    title: 'Resolver bug en login',
+    title: 'Fix login validation bug',
     type: 'bug',
-    status: 'problema-identificado',
+    status: 'identified',
     assignee: 'tester-agent',
-    priority: 'critica',
-    estimated: '1 dia',
-    affected: 'modulo-de-autenticacion'
+    priority: 'critical',
+    estimated: '1 day',
+    affected: 'authentication-module'
   }
 ];
 ```
 
-### Progress Charts (Gráficos de Avance)
-- 🏗️ **Construcción** - Features completadas
-- 🧪 **Control de Calidad** - Tests pasados
-- 🐛 **Resolución de Problemas** - Bugs fixeados
-- 📊 **Métricas** - Velocity, burndown, etc.
+### Analytics & Metrics
+- **Development Velocity**: Features completed per sprint
+- **Quality Metrics**: Test coverage and bug resolution rates
+- **Performance Analytics**: System response times and resource usage
+- **Team Productivity**: Agent efficiency and task completion rates
 
-### Team Management (Gestión de Equipo)
-- 👥 **Agentes Activos** - Agentes IA trabajando
-- 📈 **Performance** - Productividad de cada agente
-- 🎯 **Asignaciones** - Tareas asignadas por agente
-- 🤝 **Colaboración** - Coordinación entre agentes
+### Agent Management
+- **Active Agents**: Real-time AI agent status monitoring
+- **Performance Tracking**: Individual agent productivity metrics
+- **Task Assignment**: Intelligent workload distribution
+- **Collaboration**: Cross-agent communication and coordination
 
-## 🤖 Integración con Agentes IA
+## 🔌 AI Integration
 
-### Conexión con Claude Code
+### Claude Code Integration
 ```javascript
-// El sistema puede delegar tareas a Claude
 const claudeIntegration = {
   endpoint: 'https://api.anthropic.com/v1',
   model: 'claude-3-opus-20240229',
@@ -172,9 +162,8 @@ const claudeIntegration = {
 };
 ```
 
-### Conexión con GitHub Copilot
+### GitHub Copilot Integration
 ```javascript
-// Integración con Copilot para asistencia
 const copilotIntegration = {
   endpoint: 'github-copilot-api',
   capabilities: [
@@ -186,79 +175,76 @@ const copilotIntegration = {
 };
 ```
 
-## 🚀 Auto-Deployment para Proyectos Digitales
+## 🚀 Auto-Deployment System
 
-### Flujo Automatizado
-1. **📥 Clonar Repositorio** - Descargar proyecto
-2. **🔍 Analizar Estructura** - Identificar tipo de proyecto
-3. **🏗️ Configurar Dashboard** - Setup personalizado
-4. **🤖 Desplegar Agentes** - Activar asistentes IA
-5. **📋 Crear Task Board** - Importar issues/tareas
-6. **📊 Establecer Métricas** - Configurar KPIs
-7. **🚀 Sistema Listo** - Dashboard operativo
+### Automated Workflow
+1. **Repository Cloning**: Secure project download
+2. **Structure Analysis**: Technology stack identification
+3. **Dashboard Configuration**: Customized setup
+4. **Agent Deployment**: AI assistant activation
+5. **Task Board Creation**: Issue/task import
+6. **Metrics Setup**: KPI configuration
+7. **System Activation**: Ready-to-use dashboard
 
-### Ejemplo: Proyecto Web App
+### Web App Deployment Example
 ```bash
-# Comando para desplegar proyecto web
+# Deploy web application project
 npm run auto-deploy \
   --repo=https://github.com/company/my-web-app \
   --type=web-app \
   --team-size=5 \
   --timeline=8-weeks
 
-# Resultado:
-✅ Analizado: React + Node.js + MongoDB
-✅ Configurado: Dashboard de gestión web
-✅ Activados: 5 agentes IA especializados
-✅ Importadas: 47 tareas del GitHub Issues
-✅ Establecidas: Métricas de desarrollo web
-✅ Listo: Sistema de construcción digital activo
+# Results:
+✅ Analyzed: React + Node.js + MongoDB
+✅ Configured: Web development dashboard
+✅ Activated: 5 specialized AI agents
+✅ Imported: 47 tasks from GitHub Issues
+✅ Established: Web development metrics
+✅ Ready: Active digital management system
 ```
 
-## 🎯 Casos de Uso
+### Use Cases
 
-### Caso 1: Nuevo Proyecto Web
+#### New Web Project
 ```bash
-# Desplegar sistema para nuevo proyecto web
 npm run auto-deploy --repo=https://github.com/startup/saas-app
 
-# Sistema automáticamente:
-- Detecta React + TypeScript + Node.js
-- Configura agentes para desarrollo web
-- Crea task board con issues de GitHub
-- Establece métricas de desarrollo web
-- Prepara integración con Claude/Copilot
+# Automatic configuration:
+- React + TypeScript + Node.js detection
+- Web development agent setup
+- GitHub issues task board creation
+- Web development metrics establishment
+- Claude/Copilot integration preparation
 ```
 
-### Caso 2: Migración de Proyecto
+#### Legacy System Migration
 ```bash
-# Migrar proyecto existente al sistema
 npm run auto-deploy --repo=https://github.com/company/legacy-system
 
-# Sistema:
-- Analiza código existente
-- Identifica deuda técnica
-- Planifica refactorización
-- Asigna agentes para modernización
-- Establece métricas de migración
+# System capabilities:
+- Existing code analysis
+- Technical debt identification
+- Refactoring planning
+- Modernization agent assignment
+- Migration metrics establishment
 ```
 
-### Caso 3: Equipo Remoto
+#### Distributed Team Setup
 ```bash
-# Configurar para equipo distribuido
 npm run auto-deploy --repo=https://github.com/org/distributed-app --team=remote
 
-# Sistema:
-- Configura agentes para trabajo remoto
-- Establece canales de comunicación
-- Crea dashboards de productividad
-- Integra herramientas de colaboración
-- Monitora progreso distribuido
+# Remote team features:
+- Remote work agent configuration
+- Communication channel setup
+- Productivity dashboard creation
+- Collaboration tool integration
+- Distributed progress monitoring
 ```
 
-## 🔧 Configuración de Agentes
+## ⚙️ Agent Configuration
 
-### Agente Developer
+### Developer Agent
 ```json
 {
   "name": "Developer Agent",
@@ -295,7 +281,7 @@ npm run auto-deploy --repo=https://github.com/org/distributed-app --team=remote
 }
 ```
 
-### Agente Architect
+### Architect Agent
 ```json
 {
   "name": "Architect Agent", 
@@ -318,22 +304,21 @@ npm run auto-deploy --repo=https://github.com/org/distributed-app --team=remote
 }
 ```
 
-## 📊 Métricas y KPIs
+## 📈 Metrics & KPIs
 
-### Métricas de Construcción Digital
-- **🏗️ Velocity** - Features por sprint
-- **📈 Burndown** - Trabajo restante
-- **🧪 Quality Gate** - Tests pasados/fallidos
-- **🐛 Bug Rate** - Bugs por feature
-- **📊 Code Coverage** - Cobertura de código
-- **🚀 Deployment Frequency** - Despliegues por semana
-- **⚡ Performance** - Tiempo de respuesta
+### Development Metrics
+- **Velocity**: Features completed per sprint
+- **Burndown**: Remaining work tracking
+- **Quality Gates**: Test pass/fail rates
+- **Bug Rate**: Bugs per feature ratio
+- **Code Coverage**: Test coverage percentage
+- **Deployment Frequency**: Weekly deployment count
+- **Performance**: Response time metrics
 
-### Dashboard en Tiempo Real
+### Real-time Dashboard
 ```javascript
-// Actualización en vivo del "estado de la obra"
 const realTimeStatus = {
-  project_phase: 'construccion-backend',
+  project_phase: 'backend-development',
   progress: {
     completed: 65,
     in_progress: 25,
@@ -357,63 +342,111 @@ const realTimeStatus = {
 };
 ```
 
-## 🎮 Interfaz de Usuario
+## 🎨 User Interface
 
-### Diseño Inspirado en Construcción
-- **🏗️ Theme** - Estilo de obra/construcción
-- **📋 Task Cards** - Como tarjetas de trabajo
-- **📊 Progress Bars** - Como barras de progreso físicas
-- **👥 Team Avatars** - Como cascos de construcción
-- **🎯 Milestones** - Como hitos de construcción
+### Design System
+- **Modern Theme**: Professional dark mode interface
+- **Task Cards**: Interactive task management
+- **Progress Visualization**: Real-time progress bars
+- **Team Management**: Agent status displays
+- **Milestone Tracking**: Project milestone visualization
 
-### Metáforas Visuales
-- **Ladrillos** = Features/completados
-- **Grúa** = Progreso del proyecto
-- **Casco** = Agente de IA activo
-- **Plano** = Documentación técnica
-- **Cinta métrica** = Métricas/KPIs
+### Visual Elements
+- **Status Indicators**: Real-time status updates
+- **Progress Metrics**: Visual progress tracking
+- **Agent Avatars**: AI agent representations
+- **Technical Documentation**: Integrated documentation view
+- **Analytics Dashboard**: Comprehensive metrics display
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
-### Para Proyectos Digitales
+### Installation
 ```bash
-# 1. Clonar sistema
+# 1. Clone the repository
 git clone https://github.com/SOLARIA-AGENCY/solaria-digital-field-operations.git
 cd solaria-digital-field-operations
 
-# 2. Auto-desplegar para tu proyecto
-npm run auto-deploy --repo=TU_REPOSITORIO
+# 2. Install dependencies
+npm install
 
-# 3. Acceder al dashboard
-http://localhost:3000
+# 3. Set up environment
+cp .env.example .env
+# Edit .env with your configuration
 
-# 4. Comenzar construcción digital
+# 4. Start the application
+npm run dev
 ```
 
-### Para Desarrollo
+### Auto-Deploy Your Project
 ```bash
-# Modo desarrollo
+# Deploy system for your project
+npm run auto-deploy --repo=YOUR_REPOSITORY_URL
+
+# Access the dashboard
+http://localhost:3000
+```
+
+### Development Mode
+```bash
+# Start development servers
 npm run dev
 
-# Acceder a:
+# Access points:
 # Dashboard: http://localhost:3000
 # API: http://localhost:3001/api
-# Agentes: http://localhost:3002/agents
+# Real-time: WebSocket on port 3001
 ```
 
-## 📚 Documentación
+### Docker Deployment
+```bash
+# Using Docker Compose
+docker-compose up -d
 
-- [📖 Guía de Usuario](./docs/user-guide.md)
-- [🤖 Manual de Agentes](./docs/agents.md)
-- [🔧 Guía de Desarrollo](./docs/development.md)
-- [🏗️ Plantillas de Proyectos](./templates/README.md)
+# Access the application
+http://localhost:3000
+```
 
-## 🤝 Contribución
+## 📚 Documentation
 
-¡Contribuciones bienvenidas! Este es un sistema abierto para la gestión digital de proyectos usando la metáfora de la construcción.
+- [User Guide](./docs/user-guide.md) - Complete user documentation
+- [Agent Configuration](./docs/agents.md) - AI agent setup and management
+- [API Reference](./docs/api.md) - REST API documentation
+- [Development Guide](./docs/development.md) - Contributor guidelines
+
+## 🔧 Configuration
+
+### Environment Variables
+```bash
+# Database
+DATABASE_URL=./solaria_dfo.db
+
+# Server
+PORT=3001
+FRONTEND_URL=http://localhost:3000
+
+# AI Services
+ANTHROPIC_API_KEY=your_anthropic_key
+OPENAI_API_KEY=your_openai_key
+GITHUB_TOKEN=your_github_token
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+
+### Development Process
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-**SOLARIA Digital Field Operations** - *Digital Construction, Intelligence First*
+**SOLARIA Digital Field Operations** - *AI-Powered Project Management*
 
-© 2024 SOLARIA AGENCY. Todos los derechos reservados.
+© 2024 SOLARIA AGENCY. All rights reserved.
