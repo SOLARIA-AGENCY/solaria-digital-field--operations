@@ -1,0 +1,309 @@
+# SOLARIA Digital Field Operations - Oficina de Construcción en Campo
+
+**Versión:** 2.0.0
+**Última actualización:** 2025-12-10
+
+---
+
+## Propósito
+
+Esta es una **Oficina Digital de Construcción en Campo** completamente autocontenida y aislada. Su propósito es:
+
+1. Gestionar proyectos de construcción de software de forma autónoma
+2. Proporcionar dashboards ejecutivos para CEO, CTO, COO y CFO
+3. Coordinar agentes IA especializados
+4. Ser desmantelable sin afectar el proyecto construido
+
+---
+
+## Inicio Rápido para Agentes
+
+### Invocar la Oficina
+
+Cuando un agente necesite usar esta oficina, debe:
+
+```bash
+# 1. Navegar al directorio
+cd /path/to/solaria-digital-field--operations
+
+# 2. Iniciar los servicios
+docker-compose up -d
+
+# 3. Acceder al Dashboard C-Suite
+# URL: http://localhost:80
+# Acceso Rápido: Clic en "Acceso Rápido" (no requiere credenciales)
+```
+
+### Detener la Oficina
+
+```bash
+docker-compose down
+```
+
+### Desmantelar Completamente
+
+```bash
+# Detener y eliminar volúmenes
+docker-compose down -v
+
+# Eliminar datos persistentes
+rm -rf ./storage ./logs
+
+# El proyecto construido permanece intacto en su repositorio original
+```
+
+---
+
+## Arquitectura del Sistema
+
+```
+solaria-digital-field--operations/
+├── dashboard/                    # Dashboard C-Suite (CEO/CTO/COO/CFO)
+│   ├── server.js                # Servidor Express con API
+│   ├── public/
+│   │   ├── index.html           # UI del Dashboard
+│   │   ├── dashboard.js         # Lógica del frontend
+│   │   └── solaria-logo.png     # Logo corporativo
+│   └── package.json
+├── backend/                      # API de gestión de proyectos
+├── frontend/                     # UI React (alternativa)
+├── scripts/                      # Automatización y agentes IA
+│   ├── auto-deploy.js           # Despliegue automático
+│   ├── ai-agent-coordinator.js  # Coordinador de agentes
+│   ├── agent-setup.js           # Configuración de agentes
+│   └── project-analyzer.js      # Analizador de repositorios
+├── docker-compose.yml           # Orquestación de servicios
+├── .env.example                 # Variables de entorno
+└── CLAUDE.md                    # Este archivo
+```
+
+---
+
+## Roles Ejecutivos y Accesos
+
+### CEO (Chief Executive Officer)
+- **Vista:** Overview estratégico, KPIs globales, alertas críticas
+- **Métricas:** ROI, estado general de proyectos, presupuesto total
+- **Acciones:** Aprobar decisiones críticas, ver reportes ejecutivos
+
+### CTO (Chief Technology Officer)
+- **Vista:** Arquitectura técnica, rendimiento de agentes IA, deuda técnica
+- **Métricas:** Cobertura de código, tiempo de build, errores técnicos
+- **Acciones:** Asignar agentes, revisar arquitectura, aprobar releases
+
+### COO (Chief Operations Officer)
+- **Vista:** Operaciones diarias, flujo de trabajo, recursos
+- **Métricas:** Tareas completadas, velocidad del equipo, utilización
+- **Acciones:** Asignar tareas, gestionar sprints, resolver bloqueos
+
+### CFO (Chief Financial Officer)
+- **Vista:** Presupuesto, costos, proyecciones financieras
+- **Métricas:** Burn rate, costo por tarea, ROI por proyecto
+- **Acciones:** Aprobar gastos, revisar reportes financieros
+
+---
+
+## API Endpoints
+
+### Autenticación
+```
+POST /api/auth/login     # Login con credenciales
+GET  /api/auth/verify    # Verificar token JWT
+POST /api/auth/logout    # Cerrar sesión
+```
+
+### Dashboard
+```
+GET /api/dashboard/overview   # Resumen ejecutivo
+GET /api/dashboard/metrics    # Métricas por timeframe
+GET /api/dashboard/alerts     # Alertas activas
+```
+
+### Proyectos
+```
+GET    /api/projects          # Listar proyectos
+POST   /api/projects          # Crear proyecto
+GET    /api/projects/:id      # Detalle de proyecto
+PUT    /api/projects/:id      # Actualizar proyecto
+DELETE /api/projects/:id      # Eliminar proyecto
+```
+
+### Agentes IA
+```
+GET /api/agents               # Listar agentes
+GET /api/agents/:id           # Detalle de agente
+PUT /api/agents/:id/status    # Actualizar estado
+```
+
+### Tareas
+```
+GET  /api/tasks               # Listar tareas
+POST /api/tasks               # Crear tarea
+PUT  /api/tasks/:id           # Actualizar tarea
+```
+
+---
+
+## Servicios Docker
+
+| Servicio | Puerto | Descripción |
+|----------|--------|-------------|
+| nginx | 80, 443 | Reverse proxy y SSL |
+| dashboard-backend | 3000 | API del Dashboard C-Suite |
+| mysql | 3306 | Base de datos principal |
+| redis | 6379 | Cache y colas |
+| minio | 9000, 9001 | Almacenamiento S3 |
+
+---
+
+## Variables de Entorno Críticas
+
+```env
+# Base de datos
+DB_HOST=mysql
+DB_NAME=solaria_construction
+DB_USER=solaria_user
+DB_PASSWORD=<secure_password>
+
+# Seguridad
+JWT_SECRET=<min_32_chars>
+
+# IA (opcional)
+OPENAI_API_KEY=<api_key>
+ANTHROPIC_API_KEY=<api_key>
+```
+
+---
+
+## Flujo de Trabajo para Agentes
+
+### 1. Análisis de Proyecto
+```bash
+npm run analyze -- --repo=<github_url>
+```
+
+### 2. Configurar Agentes IA
+```bash
+npm run agents
+```
+
+### 3. Importar Proyecto
+```bash
+npm run import -- --source=<path>
+```
+
+### 4. Monitorear Progreso
+- Acceder a http://localhost:80
+- Usar "Acceso Rápido" para entrar
+- Navegar a la sección correspondiente al rol
+
+---
+
+## Comandos Útiles
+
+```bash
+# Desarrollo
+npm run dev              # Iniciar en modo desarrollo
+
+# Producción
+npm run start            # Iniciar con Docker
+npm run stop             # Detener servicios
+
+# Mantenimiento
+npm run setup            # Configuración inicial
+docker-compose logs -f   # Ver logs en tiempo real
+
+# Backup
+docker exec mysql mysqldump -u root solaria_construction > backup.sql
+
+# Restaurar
+docker exec -i mysql mysql -u root solaria_construction < backup.sql
+```
+
+---
+
+## Protocolo de Desmantelamiento
+
+Cuando el proyecto de construcción finalice:
+
+### 1. Exportar Datos Finales
+```bash
+# Exportar base de datos
+docker exec mysql mysqldump -u root solaria_construction > final_export.sql
+
+# Exportar documentos
+cp -r ./storage/documents ./project_documents_backup/
+```
+
+### 2. Generar Reporte Final
+```bash
+npm run report:final
+```
+
+### 3. Desmantelar Infraestructura
+```bash
+# Detener todos los servicios
+docker-compose down
+
+# Eliminar volúmenes (datos)
+docker-compose down -v
+
+# Eliminar imágenes (opcional)
+docker-compose down --rmi all
+```
+
+### 4. Verificar Aislamiento
+- El proyecto construido en su repositorio original permanece intacto
+- Solo se elimina la oficina de construcción
+- Los backups quedan disponibles si se necesitan
+
+---
+
+## Troubleshooting
+
+### Dashboard no carga
+```bash
+docker-compose restart dashboard-backend nginx
+```
+
+### Error de conexión a base de datos
+```bash
+docker-compose restart mysql
+docker-compose logs mysql
+```
+
+### Agentes no responden
+```bash
+docker-compose restart agent-manager
+npm run agents -- --reset
+```
+
+### Limpiar cache
+```bash
+docker exec redis redis-cli FLUSHALL
+```
+
+---
+
+## Contacto y Soporte
+
+- **Empresa:** SOLARIA AGENCY (https://www.solaria.agency)
+- **Propietario:** Carlos J. Pérez
+- **Repositorio:** https://github.com/SOLARIA-AGENCY/solaria-digital-field--operations
+
+---
+
+## Notas para Claude Code y Agentes IA
+
+1. Este directorio es una **oficina temporal** de construcción
+2. Todos los cambios al proyecto real deben hacerse en el repositorio del proyecto
+3. Esta oficina solo coordina y monitorea el trabajo
+4. Al finalizar, ejecutar el protocolo de desmantelamiento
+5. Los datos críticos deben exportarse antes de desmantelar
+6. El color corporativo SOLARIA es **#f6921d** (naranja)
+7. El acceso rápido usa el usuario `carlosjperez` con password `bypass`
+
+---
+
+**SOLARIA Digital Field Operations**
+**Oficina de Construcción en Campo v2.0.0**

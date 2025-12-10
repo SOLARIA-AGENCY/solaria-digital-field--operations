@@ -1,12 +1,28 @@
 # SOLARIA Digital Field Operations
 
-**AI-Powered Software Project Management Platform**
+**Oficina Digital de Construccion en Campo** - Version 2.0.0
 
-A comprehensive platform that leverages artificial intelligence to manage software development projects through intelligent automation and real-time collaboration.
+Sistema autocontenido para gestion de proyectos de software con supervision ejecutiva (CEO/CTO/COO/CFO).
 
-## 🎯 Overview
+## Inicio Rapido - C-Suite Dashboard
 
-SOLARIA Digital Field Operations is an advanced project management system designed specifically for software development teams. It combines AI-powered agents, real-time analytics, and automated workflows to streamline the entire software development lifecycle.
+```bash
+# Iniciar servicios
+docker-compose up -d dashboard-backend mysql
+
+# Acceder al Dashboard
+http://localhost:3000
+
+# Credenciales:
+# - Click "Acceso Rapido" (sin credenciales)
+# - O usar: carlosjperez / bypass
+```
+
+---
+
+## Descripcion General
+
+SOLARIA Digital Field Operations es un sistema de gestion de proyectos avanzado disenado para equipos de desarrollo de software. Combina agentes IA, analiticas en tiempo real y workflows automatizados.
 
 ### Key Features
 
