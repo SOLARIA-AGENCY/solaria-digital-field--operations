@@ -4,19 +4,24 @@
 
 Sistema autocontenido para gestion de proyectos de software con supervision ejecutiva (CEO/CTO/COO/CFO).
 
-## Inicio Rapido - C-Suite Dashboard
+## Inicio Rápido (oficina single-container recomendada)
 
 ```bash
-# Iniciar servicios
-docker-compose up -d dashboard-backend mysql
+# Levantar oficina completa (MariaDB + dashboard)
+docker compose -f docker-compose.single.yml up -d
 
-# Acceder al Dashboard
-http://localhost:3000
+# Poblar con proyecto Akademate
+pnpm ingest-akademate
 
-# Credenciales:
-# - Click "Acceso Rapido" (sin credenciales)
-# - O usar: carlosjperez / bypass
+# Checks
+pnpm health
+pnpm test:ui:dfo   # smoke UI/API con Playwright
+
+# Acceso dashboard
+http://localhost:3030  (user: carlosjperez / pass: SolariaAdmin2024!)
 ```
+
+> Runbook detallado: `docs/runbooks/office.md`
 
 ---
 
