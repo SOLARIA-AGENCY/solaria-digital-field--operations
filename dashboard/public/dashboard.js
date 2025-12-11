@@ -332,13 +332,35 @@ class SolariaDashboard {
         const pending = this.tasksData.filter(t => t.status === 'pending').length;
         const blocked = this.tasksData.filter(t => t.status === 'blocked').length;
 
+        const isDark = document.documentElement.classList.contains('dark');
+        const labelColor = isDark ? '#a1a1aa' : '#6b7280';
+
         this.charts.progress = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: ['Completadas', 'En Progreso', 'Pendientes', 'Bloqueadas'],
-                datasets: [{ data: [completed, inProgress, pending, blocked], backgroundColor: ['#22c55e', '#3b82f6', '#a1a1aa', '#ef4444'], borderWidth: 0 }]
+                datasets: [{
+                    data: [completed, inProgress, pending, blocked],
+                    backgroundColor: ['#22c55e', '#3b82f6', '#9ca3af', '#ef4444'],
+                    borderWidth: 0,
+                    borderColor: isDark ? '#18181b' : '#ffffff',
+                }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#a1a1aa' } } }, cutout: '70%' }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: labelColor,
+                            padding: 12,
+                            font: { size: 12 }
+                        }
+                    }
+                },
+                cutout: '70%'
+            }
         });
     }
 
@@ -350,10 +372,46 @@ class SolariaDashboard {
         const agentNames = this.agentsData.slice(0, 6).map(a => a.name.replace('SOLARIA-', ''));
         const taskCounts = this.agentsData.slice(0, 6).map(a => this.tasksData.filter(t => t.assigned_agent_id === a.id).length);
 
+        const isDark = document.documentElement.classList.contains('dark');
+        const gridColor = isDark ? '#27272a' : '#e5e7eb';
+        const textColor = isDark ? '#a1a1aa' : '#6b7280';
+
         this.charts.agent = new Chart(ctx, {
             type: 'bar',
-            data: { labels: agentNames, datasets: [{ label: 'Tareas', data: taskCounts, backgroundColor: '#f6921d', borderRadius: 4 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: '#a1a1aa' } }, y: { grid: { color: '#27272a' }, ticks: { color: '#a1a1aa' } } } }
+            data: {
+                labels: agentNames,
+                datasets: [{
+                    label: 'Tareas',
+                    data: taskCounts,
+                    backgroundColor: '#f6921d',
+                    borderRadius: 6,
+                    hoverBackgroundColor: '#f9a94d'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: isDark ? '#18181b' : '#ffffff',
+                        titleColor: isDark ? '#fafafa' : '#09090b',
+                        bodyColor: isDark ? '#a1a1aa' : '#6b7280',
+                        borderColor: isDark ? '#27272a' : '#e5e7eb',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: textColor }
+                    },
+                    y: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    }
+                }
+            }
         });
     }
 
@@ -1094,10 +1152,52 @@ class SolariaDashboard {
         const labels = []; const data = [];
         for (let i = 6; i >= 0; i--) { const date = new Date(); date.setDate(date.getDate() - i); labels.push(date.toLocaleDateString('es-ES', { weekday: 'short' })); data.push(Math.floor(Math.random() * 5) + 1); }
 
+        const isDark = document.documentElement.classList.contains('dark');
+        const gridColor = isDark ? '#27272a' : '#e5e7eb';
+        const textColor = isDark ? '#a1a1aa' : '#6b7280';
+
         this.charts.productivity = new Chart(ctx, {
             type: 'line',
-            data: { labels, datasets: [{ label: 'Tareas', data, borderColor: '#f6921d', backgroundColor: 'rgba(246, 146, 29, 0.1)', fill: true, tension: 0.4 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: '#a1a1aa' } }, y: { grid: { color: '#27272a' }, ticks: { color: '#a1a1aa' } } } }
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Tareas',
+                    data,
+                    borderColor: '#f6921d',
+                    backgroundColor: 'rgba(246, 146, 29, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#f6921d',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: isDark ? '#18181b' : '#ffffff',
+                        titleColor: isDark ? '#fafafa' : '#09090b',
+                        bodyColor: isDark ? '#a1a1aa' : '#6b7280',
+                        borderColor: isDark ? '#27272a' : '#e5e7eb',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: textColor }
+                    },
+                    y: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    }
+                }
+            }
         });
     }
 
@@ -1111,10 +1211,42 @@ class SolariaDashboard {
         const pending = this.tasksData.filter(t => t.status === 'pending').length;
         const blocked = this.tasksData.filter(t => t.status === 'blocked').length;
 
+        const isDark = document.documentElement.classList.contains('dark');
+        const labelColor = isDark ? '#a1a1aa' : '#6b7280';
+
         this.charts.taskStatus = new Chart(ctx, {
             type: 'doughnut',
-            data: { labels: ['Completadas', 'En Progreso', 'Pendientes', 'Bloqueadas'], datasets: [{ data: [completed, inProgress, pending, blocked], backgroundColor: ['#22c55e', '#3b82f6', '#a1a1aa', '#ef4444'], borderWidth: 0 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#a1a1aa' } } }, cutout: '60%' }
+            data: {
+                labels: ['Completadas', 'En Progreso', 'Pendientes', 'Bloqueadas'],
+                datasets: [{
+                    data: [completed, inProgress, pending, blocked],
+                    backgroundColor: ['#22c55e', '#3b82f6', '#9ca3af', '#ef4444'],
+                    borderWidth: 0,
+                    borderColor: isDark ? '#18181b' : '#ffffff',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: labelColor,
+                            padding: 12,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: isDark ? '#18181b' : '#ffffff',
+                        titleColor: isDark ? '#fafafa' : '#09090b',
+                        bodyColor: isDark ? '#a1a1aa' : '#6b7280',
+                        borderColor: isDark ? '#27272a' : '#e5e7eb',
+                        borderWidth: 1
+                    }
+                },
+                cutout: '60%'
+            }
         });
     }
 
