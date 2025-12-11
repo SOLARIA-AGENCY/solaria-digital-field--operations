@@ -18,7 +18,8 @@
     "agents": "node scripts/agent-setup.js",
     "import": "node scripts/data-importer.js",
     "ingest-akademate": "node scripts/ingest-akademate.js",
-    "health": "node scripts/health-check.js"
+    "health": "node scripts/health-check.js",
+    "office:bootstrap": "bash scripts/bootstrap-office.sh"
   },
   "keywords": [
     "construction",
