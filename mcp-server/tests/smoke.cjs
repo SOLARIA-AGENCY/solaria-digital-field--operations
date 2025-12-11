@@ -4,7 +4,7 @@ const fetch = global.fetch;
 
 const API = process.env.DASHBOARD_API_URL || 'http://localhost:3030/api';
 const USER = process.env.DASHBOARD_USER || 'carlosjperez';
-const PASS = process.env.DASHBOARD_PASS || 'SolariaAdmin2024!';
+const PASS = process.env.DASHBOARD_PASS || 'bypass';
 
 async function main() {
   // health

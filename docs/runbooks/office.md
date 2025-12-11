@@ -34,13 +34,23 @@ pnpm test:ui:dfo      # smoke UI/API con Playwright
 
 ## 6) Accesos
 - Dashboard: http://localhost:3030
-- Credenciales seed: `carlosjperez` / `SolariaAdmin2024!`
+- Credenciales dashboard: `carlosjperez` / `bypass`
 
 ## 7) Teardown
 ```bash
 docker compose -f docker-compose.single.yml down -v
 ```
 
+## 8) Credenciales estandarizadas
+
+| Servicio | Usuario | Password |
+|----------|---------|----------|
+| Dashboard | carlosjperez | bypass |
+| MariaDB root | root | SolariaRoot2024 |
+| MariaDB app | solaria_user | solaria2024 |
+
+> **Nota:** Las contraseñas no usan caracteres especiales (!, @, #, etc.) para evitar problemas de escaping en bash.
+
 ## Notas
-- Las contraseñas seed se reescriben en cada arranque por el entrypoint (hash de `SolariaAdmin2024!`).
+- Las contraseñas de dashboard se normalizan en cada arranque (hash SHA256 de 'bypass').
 - MCP DFO usa auth por API; mantener oficina arriba antes de llamar a herramientas.

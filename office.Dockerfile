@@ -26,11 +26,11 @@ RUN chmod +x /usr/local/bin/office-entrypoint.sh
 EXPOSE 3030 3306
 VOLUME ["/var/lib/mysql", "/app/logs"]
 
-ENV DB_PASSWORD=SolariaField2024! \
-    MYSQL_ROOT_PASSWORD=SolariaRoot2024! \
+ENV DB_PASSWORD=solaria2024 \
+    MYSQL_ROOT_PASSWORD=SolariaRoot2024 \
     DB_NAME=solaria_construction \
     DB_USER=solaria_user \
-    JWT_SECRET=solaria_akademate_jwt_secret_2024_production_min32chars \
+    JWT_SECRET=solaria_jwt_secret_2024_min32chars_secure \
     NODE_ENV=production \
     PORT=3030
 

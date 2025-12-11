@@ -11,8 +11,8 @@ cp .env.example .env
 ```
 docker-compose up -d --build
 ```
-- Dashboard: http://localhost:3000
-- Credenciales seed: carlosjperez / SolariaAdmin2024! (puedes cambiarlas en MySQL `users`)
+- Dashboard: http://localhost:3030
+- Credenciales seed: carlosjperez / bypass (puedes cambiarlas en MySQL `users`)
 
 3) Ingestar proyecto Akademate (importa spec/milestones al dashboard)
 ```
