@@ -17,6 +17,10 @@ pnpm ingest-akademate
 pnpm health
 pnpm test:ui:dfo   # smoke UI/API con Playwright
 
+# MCP (obligatorio)
+pnpm mcp:dfo         # MCP API (stdio)
+pnpm mcp:playwright  # MCP UI/headless
+
 # Acceso dashboard
 http://localhost:3030  (user: carlosjperez / pass: SolariaAdmin2024!)
 ```
