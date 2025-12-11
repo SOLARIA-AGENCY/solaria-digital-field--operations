@@ -22,7 +22,7 @@ pnpm mcp:dfo         # MCP API (stdio)
 pnpm mcp:playwright  # MCP UI/headless
 
 # Acceso dashboard
-http://localhost:3030  (user: carlosjperez / pass: SolariaAdmin2024!)
+http://localhost:3030  (user: carlosjperez / pass: bypass)
 ```
 
 > Runbook detallado: `docs/runbooks/office.md`

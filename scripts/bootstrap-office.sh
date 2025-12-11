@@ -41,7 +41,7 @@ echo $! > .mcp-playwright.pid
 
 cat <<INFO
 [DFO] Ready
-- Dashboard: http://localhost:3030 (user: carlosjperez / pass: SolariaAdmin2024!)
+- Dashboard: http://localhost:3030 (user: carlosjperez / pass: bypass)
 - MCP API PID: $(cat .mcp-dfo.pid)
 - MCP UI  PID: $(cat .mcp-playwright.pid)
 - Logs: /tmp/mcp-dfo.log, /tmp/mcp-playwright.log

@@ -27,7 +27,7 @@ npm install
 ```bash
 export DASHBOARD_API_URL=http://localhost:3030/api
 export DASHBOARD_USER=carlosjperez
-export DASHBOARD_PASS=SolariaAdmin2024!
+export DASHBOARD_PASS=bypass
 ```
 
 3. Run the server:

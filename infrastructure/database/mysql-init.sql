@@ -174,14 +174,14 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insert default C-Suite users
--- Password: SolariaAdmin2024! -> SHA256 hash
--- IMPORTANT: Change these passwords immediately after first login in production!
+-- Password: bypass -> SHA256 hash: f271a122bf4230c7c217b4cb8a66f8b4325b9c1821627dca16924fff32d6aa71
+-- Note: entrypoint normalizes passwords to 'bypass' on each startup
 INSERT INTO users (username, email, password_hash, name, role, is_active) VALUES
-('carlosjperez', 'carlos@solaria.agency', 'a8d3ca85c348198c863daaa1af3b13af4aba6bbf414c32a77efe02b447ad93b8', 'Carlos J. Perez', 'ceo', TRUE),
-('cto_solaria', 'cto@solaria.agency', 'a8d3ca85c348198c863daaa1af3b13af4aba6bbf414c32a77efe02b447ad93b8', 'CTO SOLARIA', 'cto', TRUE),
-('coo_solaria', 'coo@solaria.agency', 'a8d3ca85c348198c863daaa1af3b13af4aba6bbf414c32a77efe02b447ad93b8', 'COO SOLARIA', 'coo', TRUE),
-('cfo_solaria', 'cfo@solaria.agency', 'a8d3ca85c348198c863daaa1af3b13af4aba6bbf414c32a77efe02b447ad93b8', 'CFO SOLARIA', 'cfo', TRUE),
-('admin', 'admin@solaria.agency', 'a8d3ca85c348198c863daaa1af3b13af4aba6bbf414c32a77efe02b447ad93b8', 'System Admin', 'admin', TRUE);
+('carlosjperez', 'carlos@solaria.agency', 'f271a122bf4230c7c217b4cb8a66f8b4325b9c1821627dca16924fff32d6aa71', 'Carlos J. Perez', 'ceo', TRUE),
+('cto_solaria', 'cto@solaria.agency', 'f271a122bf4230c7c217b4cb8a66f8b4325b9c1821627dca16924fff32d6aa71', 'CTO SOLARIA', 'cto', TRUE),
+('coo_solaria', 'coo@solaria.agency', 'f271a122bf4230c7c217b4cb8a66f8b4325b9c1821627dca16924fff32d6aa71', 'COO SOLARIA', 'coo', TRUE),
+('cfo_solaria', 'cfo@solaria.agency', 'f271a122bf4230c7c217b4cb8a66f8b4325b9c1821627dca16924fff32d6aa71', 'CFO SOLARIA', 'cfo', TRUE),
+('admin', 'admin@solaria.agency', 'f271a122bf4230c7c217b4cb8a66f8b4325b9c1821627dca16924fff32d6aa71', 'System Admin', 'admin', TRUE);
 
 -- Insert AI Agents
 INSERT INTO ai_agents (name, role, status, capabilities, last_activity) VALUES

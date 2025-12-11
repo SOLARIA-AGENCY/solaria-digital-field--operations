@@ -6,11 +6,11 @@ services:
     ports:
       - "3030:3030"
     environment:
-      - DB_PASSWORD=${DB_PASSWORD:-SolariaField2024!}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-SolariaRoot2024!}
+      - DB_PASSWORD=${DB_PASSWORD:-solaria2024}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-SolariaRoot2024}
       - DB_NAME=solaria_construction
       - DB_USER=solaria_user
-      - JWT_SECRET=${JWT_SECRET:-solaria_akademate_jwt_secret_2024_production_min32chars}
+      - JWT_SECRET=${JWT_SECRET:-solaria_jwt_secret_2024_min32chars_secure}
       - PORT=3030
     volumes:
       - office_mysql_data:/var/lib/mysql

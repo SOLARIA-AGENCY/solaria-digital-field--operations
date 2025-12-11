@@ -3,7 +3,7 @@ import { test, expect, request as playwrightRequest } from '@playwright/test';
 const apiBase = process.env.DASHBOARD_API_URL || 'http://localhost:3030/api';
 const baseURL = process.env.DFO_BASE_URL || 'http://localhost:3030';
 const user = process.env.DASHBOARD_USER || 'carlosjperez';
-const pass = process.env.DASHBOARD_PASS || 'SolariaAdmin2024!';
+const pass = process.env.DASHBOARD_PASS || 'bypass';
 
 // UI + API smoke to ensure office is ready for agents
 

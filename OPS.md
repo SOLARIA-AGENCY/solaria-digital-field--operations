@@ -8,10 +8,10 @@
 - Otros (redis/minio/agent-manager/document-processor/postgres) están en stack pero hoy no se usan; se pueden apagar si se desea.
 
 ## Accesos
-- Dashboard: http://localhost:3000
+- Dashboard: http://localhost:3030
 - Usuario: `carlosjperez`
-- Password: `SolariaAdmin2024!`
-- Health: `curl http://localhost:3000/api/health`
+- Password: `bypass`
+- Health: `curl http://localhost:3030/api/health`
 
 ## Operación diaria (por Codex)
 1) Mantener contenedores: `docker-compose ps` / `docker-compose logs -f dashboard-backend`.
