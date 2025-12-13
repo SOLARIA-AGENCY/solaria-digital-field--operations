@@ -118,6 +118,25 @@ function createSession(projectId) {
   return session;
 }
 
+function updateSessionProject(sessionId, projectId) {
+  const session = sessions.get(sessionId);
+  if (session) {
+    session.project_id = projectId;
+    session.last_activity = new Date();
+    return session;
+  }
+  return null;
+}
+
+// Auto-create session for new connections
+function getOrCreateSession(sessionId, projectId = null) {
+  if (sessionId && sessions.has(sessionId)) {
+    return sessions.get(sessionId);
+  }
+  // Create new session
+  return createSession(projectId);
+}
+
 // ==================== ENDPOINTS ====================
 
 /**
@@ -201,12 +220,20 @@ app.post("/mcp", async (req, res) => {
     const { apiCall } = apiClient;
 
     // Get session or project context
-    const sessionId = req.headers["mcp-session-id"];
+    let sessionId = req.headers["mcp-session-id"];
     const projectIdHeader = req.headers["x-project-id"];
     const adminModeHeader = req.headers["x-admin-mode"];
-    const session = getSession(sessionId);
+
+    // Auto-create session if not exists
+    let session = getSession(sessionId);
+    if (!session && !projectIdHeader) {
+      // Create a new session for this connection
+      session = getOrCreateSession(null, null);
+      sessionId = session.id;
+    }
 
     const context = {
+      session_id: sessionId || session?.id,
       project_id: session?.project_id || (projectIdHeader ? parseInt(projectIdHeader) : null),
       // Admin mode: explicit header OR no project_id
       adminMode: adminModeHeader === "true" || adminModeHeader === "1",
@@ -241,6 +268,11 @@ app.post("/mcp", async (req, res) => {
             name: "solaria-dashboard",
             version: "3.1.0",
           },
+          // Session information
+          session: {
+            id: session?.id || null,
+            hint: "Use 'Mcp-Session-Id' header with this ID to maintain session state across requests.",
+          },
           // Project isolation information
           isolation: {
             enabled: !!context.project_id,
@@ -248,7 +280,7 @@ app.post("/mcp", async (req, res) => {
             mode: context.project_id ? "isolated" : "admin",
             message: context.project_id
               ? `You are operating in ISOLATED MODE for project #${context.project_id}. You can only access data from this project.`
-              : "You are in ADMIN MODE with access to all projects.",
+              : "No project context set. Call 'set_project_context' with project name to isolate to a specific project.",
           },
         };
         break;
@@ -261,14 +293,50 @@ app.post("/mcp", async (req, res) => {
         const { name, arguments: args } = params;
         try {
           const toolResult = await executeTool(name, args, apiCall, context);
-          result = {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(toolResult, null, 2),
+
+          // Handle special action to update session context
+          if (toolResult?.__action === "SET_PROJECT_CONTEXT") {
+            // Update session with new project_id
+            if (session) {
+              session.project_id = toolResult.project_id;
+              session.last_activity = new Date();
+              console.log(`[SESSION] Updated session ${session.id} to project ${toolResult.project_id}`);
+            } else {
+              // Create new session with project
+              session = createSession(toolResult.project_id);
+              sessionId = session.id;
+              console.log(`[SESSION] Created new session ${session.id} for project ${toolResult.project_id}`);
+            }
+
+            // Remove internal action flag from result
+            const { __action, ...cleanResult } = toolResult;
+            result = {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    ...cleanResult,
+                    session_id: session.id,
+                    instruction: "Use this session_id in the 'Mcp-Session-Id' header for subsequent requests to maintain project isolation.",
+                  }, null, 2),
+                },
+              ],
+              // Include session info in response metadata
+              _session: {
+                id: session.id,
+                project_id: session.project_id,
               },
-            ],
-          };
+            };
+          } else {
+            result = {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(toolResult, null, 2),
+                },
+              ],
+            };
+          }
         } catch (error) {
           result = {
             content: [

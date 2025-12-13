@@ -5,6 +5,37 @@
 
 // Tool definitions (shared between transports)
 export const toolDefinitions = [
+  // Session Context Tool (MUST be called first)
+  {
+    name: "set_project_context",
+    description: "IMPORTANT: Call this FIRST when starting work on a project. Sets the project context for this session to enable project isolation. You can identify the project by name or ID.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_name: {
+          type: "string",
+          description: "Project name (e.g., 'PRILABSA Website', 'Akademate'). Will search for matching project.",
+        },
+        project_id: {
+          type: "number",
+          description: "Project ID if known",
+        },
+        working_directory: {
+          type: "string",
+          description: "Current working directory path (helps identify project)",
+        },
+      },
+    },
+  },
+  {
+    name: "get_current_context",
+    description: "Get the current session context including which project you are isolated to",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+
   // Dashboard Tools
   {
     name: "get_dashboard_overview",
@@ -404,6 +435,74 @@ export async function executeTool(name, args, apiCall, context = {}) {
   }
 
   switch (name) {
+    // Session Context Management
+    case "set_project_context": {
+      // Find project by name or ID
+      let targetProject = null;
+
+      if (args.project_id) {
+        targetProject = await apiCall(`/projects/${args.project_id}`);
+      } else if (args.project_name) {
+        // Search for project by name
+        const allProjects = await apiCall("/projects");
+        const projects = allProjects.projects || allProjects || [];
+
+        // Try exact match first
+        targetProject = projects.find(p =>
+          p.name.toLowerCase() === args.project_name.toLowerCase()
+        );
+
+        // Try partial match
+        if (!targetProject) {
+          targetProject = projects.find(p =>
+            p.name.toLowerCase().includes(args.project_name.toLowerCase()) ||
+            args.project_name.toLowerCase().includes(p.name.toLowerCase())
+          );
+        }
+      } else if (args.working_directory) {
+        // Try to match by directory name
+        const dirName = args.working_directory.split('/').pop().toLowerCase();
+        const allProjects = await apiCall("/projects");
+        const projects = allProjects.projects || allProjects || [];
+
+        targetProject = projects.find(p =>
+          p.name.toLowerCase().includes(dirName) ||
+          dirName.includes(p.name.toLowerCase().replace(/\s+/g, '-'))
+        );
+      }
+
+      if (!targetProject) {
+        // List available projects to help
+        const allProjects = await apiCall("/projects");
+        const projects = allProjects.projects || allProjects || [];
+        return {
+          success: false,
+          error: "Project not found",
+          available_projects: projects.map(p => ({ id: p.id, name: p.name })),
+          hint: "Use set_project_context with project_id or exact project_name",
+        };
+      }
+
+      // Return special action to update session
+      return {
+        __action: "SET_PROJECT_CONTEXT",
+        success: true,
+        project_id: targetProject.id || targetProject.project?.id,
+        project_name: targetProject.name || targetProject.project?.name,
+        message: `Context set to project: ${targetProject.name || targetProject.project?.name} (ID: ${targetProject.id || targetProject.project?.id}). All subsequent operations will be isolated to this project.`,
+      };
+    }
+
+    case "get_current_context":
+      return {
+        project_id: context.project_id,
+        isolation_enabled: isIsolated,
+        admin_mode: context.adminMode || false,
+        message: isIsolated
+          ? `You are working in project #${context.project_id}. All operations are isolated to this project.`
+          : "No project context set. You have access to all projects. Call set_project_context to isolate to a specific project.",
+      };
+
     // Dashboard - Returns project-specific metrics when isolated
     case "get_dashboard_overview":
       if (isIsolated) {
