@@ -718,15 +718,34 @@ class SolariaDashboardServer {
         try {
             const { id } = req.params;
             const updates = req.body;
-            
-            const [result] = await this.db.execute(`
-                UPDATE projects 
-                SET name = ?, client = ?, description = ?, priority = ?, budget = ?, deadline = ?
-                WHERE id = ?
-            `, [
-                updates.name, updates.client, updates.description, 
-                updates.priority, updates.budget, updates.deadline, id
-            ]);
+
+            // Build dynamic UPDATE query only for provided fields
+            const fields = [];
+            const values = [];
+
+            if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
+            if (updates.client !== undefined) { fields.push('client = ?'); values.push(updates.client); }
+            if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
+            if (updates.priority !== undefined) { fields.push('priority = ?'); values.push(updates.priority); }
+            if (updates.budget !== undefined) { fields.push('budget = ?'); values.push(updates.budget); }
+            if (updates.deadline !== undefined) { fields.push('deadline = ?'); values.push(updates.deadline); }
+            if (updates.status !== undefined) { fields.push('status = ?'); values.push(updates.status); }
+            if (updates.completion_percentage !== undefined) { fields.push('completion_percentage = ?'); values.push(updates.completion_percentage); }
+
+            if (fields.length === 0) {
+                return res.status(400).json({ error: 'No fields to update' });
+            }
+
+            // Add updated_at timestamp
+            fields.push('updated_at = NOW()');
+
+            // Add id as last parameter
+            values.push(id);
+
+            const [result] = await this.db.execute(
+                `UPDATE projects SET ${fields.join(', ')} WHERE id = ?`,
+                values
+            );
 
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: 'Project not found' });
@@ -735,6 +754,7 @@ class SolariaDashboardServer {
             res.json({ message: 'Project updated successfully' });
 
         } catch (error) {
+            console.error('Update project error:', error);
             res.status(500).json({ error: 'Failed to update project' });
         }
     }
@@ -1049,16 +1069,34 @@ class SolariaDashboardServer {
         try {
             const { id } = req.params;
             const updates = req.body;
-            
-            const [result] = await this.db.execute(`
-                UPDATE tasks 
-                SET title = ?, description = ?, status = ?, priority = ?, 
-                    progress = ?, actual_hours = ?, notes = ?
-                WHERE id = ?
-            `, [
-                updates.title, updates.description, updates.status, updates.priority,
-                updates.progress, updates.actual_hours, updates.notes, id
-            ]);
+
+            // Build dynamic UPDATE query only for provided fields
+            const fields = [];
+            const values = [];
+
+            if (updates.title !== undefined) { fields.push('title = ?'); values.push(updates.title); }
+            if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
+            if (updates.status !== undefined) { fields.push('status = ?'); values.push(updates.status); }
+            if (updates.priority !== undefined) { fields.push('priority = ?'); values.push(updates.priority); }
+            if (updates.progress !== undefined) { fields.push('progress = ?'); values.push(updates.progress); }
+            if (updates.actual_hours !== undefined) { fields.push('actual_hours = ?'); values.push(updates.actual_hours); }
+            if (updates.notes !== undefined) { fields.push('notes = ?'); values.push(updates.notes); }
+            if (updates.assigned_agent_id !== undefined) { fields.push('assigned_agent_id = ?'); values.push(updates.assigned_agent_id); }
+
+            if (fields.length === 0) {
+                return res.status(400).json({ error: 'No fields to update' });
+            }
+
+            // Add updated_at timestamp
+            fields.push('updated_at = NOW()');
+
+            // Add id as last parameter
+            values.push(id);
+
+            const [result] = await this.db.execute(
+                `UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`,
+                values
+            );
 
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: 'Task not found' });
@@ -1067,6 +1105,7 @@ class SolariaDashboardServer {
             res.json({ message: 'Task updated successfully' });
 
         } catch (error) {
+            console.error('Update task error:', error);
             res.status(500).json({ error: 'Failed to update task' });
         }
     }
