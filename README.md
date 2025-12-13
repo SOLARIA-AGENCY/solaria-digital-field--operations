@@ -111,6 +111,65 @@ Editar `~/.config/windsurf/mcp_config.json` (Linux) o `~/Library/Application Sup
 
 Despues de configurar, reinicia tu IDE para activar la conexion MCP.
 
+## Aislamiento de Proyectos (Multi-Agente)
+
+Cuando multiples agentes Claude trabajan simultaneamente en diferentes proyectos, cada uno debe establecer su contexto de proyecto al inicio de la sesion.
+
+### Paso 1: El Agente Establece su Contexto
+
+Al iniciar trabajo en un proyecto, el agente debe llamar:
+
+```
+set_project_context({project_name: "Nombre del Proyecto"})
+```
+
+O por ID:
+```
+set_project_context({project_id: 1})
+```
+
+O por directorio de trabajo:
+```
+set_project_context({working_directory: "/path/to/my-project"})
+```
+
+### Paso 2: Aislamiento Automatico
+
+Una vez establecido el contexto:
+- `list_projects` → Solo retorna el proyecto asignado
+- `list_tasks` → Solo tareas del proyecto
+- `create_task` → Se crea en el proyecto correcto
+- Intentar acceder a otros proyectos retorna "ACCESS DENIED"
+
+### Verificar Contexto Actual
+
+```
+get_current_context()
+```
+
+Retorna:
+```json
+{
+  "project_id": 1,
+  "isolation_enabled": true,
+  "message": "You are working in project #1. All operations are isolated to this project."
+}
+```
+
+### Ejemplo de Flujo de Trabajo
+
+```
+Usuario: Crea una tarea para implementar login
+
+Agente: Primero establezco el contexto del proyecto...
+[Llama set_project_context({project_name: "PRILABSA Website"})]
+
+Agente: Contexto establecido. Ahora creo la tarea...
+[Llama create_task({title: "Implementar login", priority: "high"})]
+
+Tarea creada en proyecto PRILABSA Website (aislado de otros proyectos)
+```
+
 ## Dashboard
 
 - **URL:** https://dfo.solaria.agency
