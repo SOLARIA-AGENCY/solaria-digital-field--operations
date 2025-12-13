@@ -131,13 +131,67 @@ Editar `~/.claude/claude_code_config.json`:
         "url": "https://dfo.solaria.agency/mcp"
       },
       "headers": {
-        "Authorization": "Bearer default",
-        "X-Project-Id": "mi-proyecto"
+        "Authorization": "Bearer default"
       }
     }
   }
 }
 ```
+
+---
+
+## ⚠️ IMPORTANTE: Registro de Contexto de Proyecto
+
+### Antes de cualquier operación, el agente DEBE registrar su proyecto:
+
+```javascript
+// OBLIGATORIO al inicio de cada sesión
+set_project_context({ project_name: "Nombre del Proyecto" })
+```
+
+### Por qué es necesario:
+- Múltiples agentes pueden trabajar simultáneamente en diferentes proyectos
+- Sin contexto, podrías ver/modificar datos de otros proyectos
+- El aislamiento previene contaminación de información entre proyectos
+
+### Flujo correcto:
+
+```
+1. Al iniciar sesión en un proyecto:
+   → Llamar: set_project_context({ project_name: "Mi Proyecto" })
+   → Recibir: session_id y confirmación
+
+2. Verificar contexto actual:
+   → Llamar: get_current_context()
+   → Ver: project_id, isolation_enabled, mensaje
+
+3. Realizar operaciones normales:
+   → list_tasks(), create_task(), etc.
+   → Todas aisladas al proyecto registrado
+```
+
+### Ejemplo práctico:
+
+```
+Usuario: Lista las tareas pendientes
+
+Agente: Primero verifico mi contexto de proyecto...
+[Llama get_current_context()]
+
+Si no hay contexto:
+[Llama set_project_context({ project_name: "PRILABSA Website" })]
+
+Ahora puedo listar tareas:
+[Llama list_tasks({ status: "pending" })]
+→ Solo retorna tareas del proyecto PRILABSA
+```
+
+### Si intentas acceder a otro proyecto:
+```
+Error: ACCESS DENIED: Cannot access project #3. You are isolated to project #1
+```
+
+---
 
 ### Herramientas MCP Disponibles
 
