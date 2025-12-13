@@ -236,7 +236,16 @@ app.post("/mcp", async (req, res) => {
           },
           serverInfo: {
             name: "solaria-dashboard",
-            version: "1.0.0",
+            version: "3.1.0",
+          },
+          // Project isolation information
+          isolation: {
+            enabled: !!context.project_id,
+            project_id: context.project_id || null,
+            mode: context.project_id ? "isolated" : "admin",
+            message: context.project_id
+              ? `You are operating in ISOLATED MODE for project #${context.project_id}. You can only access data from this project.`
+              : "You are in ADMIN MODE with access to all projects.",
           },
         };
         break;
@@ -276,7 +285,8 @@ app.post("/mcp", async (req, res) => {
 
       case "resources/read":
         const { uri } = params;
-        const resourceData = await readResource(uri, apiCall);
+        // Pass context for project isolation
+        const resourceData = await readResource(uri, apiCall, context);
         result = {
           contents: [
             {

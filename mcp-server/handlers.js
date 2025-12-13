@@ -374,35 +374,93 @@ export function createApiClient(dashboardUrl, credentials = {}) {
 }
 
 /**
- * Execute a tool call
+ * Execute a tool call with PROJECT ISOLATION
  * @param {string} name - Tool name
  * @param {object} args - Tool arguments
  * @param {function} apiCall - API call function
- * @param {object} context - Optional context (project_id, etc.)
+ * @param {object} context - Context with project_id for isolation
+ *
+ * ISOLATION RULES:
+ * - When context.project_id is set, agent can ONLY access that project's data
+ * - list_projects → Returns only the assigned project
+ * - list_tasks → Always filtered by project_id
+ * - get_task → Validates task belongs to project
+ * - create_task → Forces project_id from context
+ * - Admin mode (context.adminMode=true) bypasses isolation
  */
 export async function executeTool(name, args, apiCall, context = {}) {
-  // Use context project_id if not provided in args
-  const projectId = args?.project_id || context.project_id;
+  // Determine if strict project isolation is active
+  const isIsolated = context.project_id && !context.adminMode;
+  const projectId = context.project_id || args?.project_id;
+
+  // Helper to validate task belongs to context project
+  async function validateTaskProject(taskId) {
+    if (!isIsolated) return true;
+    const task = await apiCall(`/tasks/${taskId}`);
+    if (task.project_id !== context.project_id) {
+      throw new Error(`ACCESS DENIED: Task #${taskId} does not belong to your project`);
+    }
+    return true;
+  }
 
   switch (name) {
-    // Dashboard
+    // Dashboard - Returns project-specific metrics when isolated
     case "get_dashboard_overview":
+      if (isIsolated) {
+        // Return project-specific overview
+        const [project, allTasks] = await Promise.all([
+          apiCall(`/projects/${context.project_id}`),
+          apiCall(`/tasks?project_id=${context.project_id}`),
+        ]);
+        const tasks = allTasks || [];
+        return {
+          project,
+          metrics: {
+            total_tasks: tasks.length,
+            completed: tasks.filter(t => t.status === "completed").length,
+            in_progress: tasks.filter(t => t.status === "in_progress").length,
+            pending: tasks.filter(t => t.status === "pending").length,
+            blocked: tasks.filter(t => t.status === "blocked").length,
+          },
+          isolation_mode: true,
+          project_id: context.project_id,
+        };
+      }
       return apiCall("/dashboard/overview");
 
     case "get_dashboard_alerts":
+      if (isIsolated) {
+        const alerts = await apiCall(`/dashboard/alerts${args?.severity ? `?severity=${args.severity}` : ""}`);
+        // Filter alerts to only show project-related ones
+        return (alerts || []).filter(a => !a.project_id || a.project_id === context.project_id);
+      }
       return apiCall(`/dashboard/alerts${args?.severity ? `?severity=${args.severity}` : ""}`);
 
-    // Projects
+    // Projects - STRICT ISOLATION
     case "list_projects":
+      if (isIsolated) {
+        // Only return the assigned project
+        const project = await apiCall(`/projects/${context.project_id}`);
+        return [project];
+      }
       return apiCall("/projects");
 
     case "get_project":
       if (!args?.project_id && !projectId) {
         throw new Error("project_id is required");
       }
-      return apiCall(`/projects/${args?.project_id || projectId}`);
+      const requestedProjectId = args?.project_id || projectId;
+      // ISOLATION: Can only access own project
+      if (isIsolated && requestedProjectId !== context.project_id) {
+        throw new Error(`ACCESS DENIED: Cannot access project #${requestedProjectId}. You are isolated to project #${context.project_id}`);
+      }
+      return apiCall(`/projects/${requestedProjectId}`);
 
     case "create_project":
+      // ISOLATION: Cannot create new projects when isolated
+      if (isIsolated) {
+        throw new Error("ACCESS DENIED: Cannot create new projects in isolated mode. Use the dashboard for project management.");
+      }
       return apiCall("/projects", {
         method: "POST",
         body: JSON.stringify({
@@ -417,16 +475,29 @@ export async function executeTool(name, args, apiCall, context = {}) {
       });
 
     case "update_project":
+      // ISOLATION: Can only update own project
+      if (isIsolated && args.project_id !== context.project_id) {
+        throw new Error(`ACCESS DENIED: Cannot update project #${args.project_id}. You are isolated to project #${context.project_id}`);
+      }
       return apiCall(`/projects/${args.project_id}`, {
         method: "PUT",
         body: JSON.stringify(args),
       });
 
-    // Tasks
+    // Tasks - STRICT ISOLATION
     case "list_tasks": {
       let endpoint = "/tasks";
       const params = [];
-      if (args?.project_id || projectId) params.push(`project_id=${args?.project_id || projectId}`);
+      // ISOLATION: Always filter by context project_id
+      if (isIsolated) {
+        params.push(`project_id=${context.project_id}`);
+        // Ignore any attempt to query other projects
+        if (args?.project_id && args.project_id !== context.project_id) {
+          console.warn(`[ISOLATION] Blocked attempt to list tasks from project #${args.project_id}`);
+        }
+      } else if (args?.project_id || projectId) {
+        params.push(`project_id=${args?.project_id || projectId}`);
+      }
       if (args?.status) params.push(`status=${args.status}`);
       if (args?.priority) params.push(`priority=${args.priority}`);
       if (args?.agent_id) params.push(`agent_id=${args.agent_id}`);
@@ -435,9 +506,26 @@ export async function executeTool(name, args, apiCall, context = {}) {
     }
 
     case "get_task":
+      // ISOLATION: Validate task belongs to project before returning
+      await validateTaskProject(args.task_id);
       return apiCall(`/tasks/${args.task_id}`);
 
     case "create_task":
+      // ISOLATION: Force project_id from context
+      if (isIsolated) {
+        if (args.project_id && args.project_id !== context.project_id) {
+          throw new Error(`ACCESS DENIED: Cannot create tasks in project #${args.project_id}. You are isolated to project #${context.project_id}`);
+        }
+        return apiCall("/tasks", {
+          method: "POST",
+          body: JSON.stringify({
+            ...args,
+            project_id: context.project_id, // Force context project
+            status: args.status || "pending",
+            priority: args.priority || "medium",
+          }),
+        });
+      }
       if (!args.project_id && !projectId) {
         throw new Error("project_id is required for creating tasks");
       }
@@ -452,12 +540,16 @@ export async function executeTool(name, args, apiCall, context = {}) {
       });
 
     case "update_task":
+      // ISOLATION: Validate task belongs to project
+      await validateTaskProject(args.task_id);
       return apiCall(`/tasks/${args.task_id}`, {
         method: "PUT",
         body: JSON.stringify(args),
       });
 
     case "complete_task":
+      // ISOLATION: Validate task belongs to project
+      await validateTaskProject(args.task_id);
       return apiCall(`/tasks/${args.task_id}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -493,25 +585,34 @@ export async function executeTool(name, args, apiCall, context = {}) {
         body: JSON.stringify({ status: args.status }),
       });
 
-    // Logs
+    // Logs - ISOLATED
     case "get_activity_logs": {
       const limit = args?.limit || 50;
       const level = args?.level ? `&level=${args.level}` : "";
-      const project = args?.project_id ? `&project_id=${args.project_id}` : "";
+      // ISOLATION: Force project filter
+      const project = isIsolated
+        ? `&project_id=${context.project_id}`
+        : args?.project_id ? `&project_id=${args.project_id}` : "";
       return apiCall(`/logs?limit=${limit}${level}${project}`);
     }
 
     case "log_activity":
+      // ISOLATION: Force project_id from context
       return apiCall("/logs", {
         method: "POST",
         body: JSON.stringify({
           ...args,
-          project_id: args.project_id || projectId,
+          project_id: isIsolated ? context.project_id : (args.project_id || projectId),
         }),
       });
 
-    // Docs
+    // Docs - ISOLATED
     case "list_docs":
+      if (isIsolated) {
+        // Filter docs by project
+        const allDocs = await apiCall("/docs/list");
+        return (allDocs || []).filter(d => d.project_id === context.project_id);
+      }
       return apiCall("/docs/list");
 
     default:
@@ -520,20 +621,46 @@ export async function executeTool(name, args, apiCall, context = {}) {
 }
 
 /**
- * Read a resource
+ * Read a resource with PROJECT ISOLATION
  * @param {string} uri - Resource URI
  * @param {function} apiCall - API call function
+ * @param {object} context - Context with project_id for isolation
  */
-export async function readResource(uri, apiCall) {
+export async function readResource(uri, apiCall, context = {}) {
+  const isIsolated = context.project_id && !context.adminMode;
+
   switch (uri) {
     case "solaria://dashboard/overview":
+      if (isIsolated) {
+        const [project, tasks] = await Promise.all([
+          apiCall(`/projects/${context.project_id}`),
+          apiCall(`/tasks?project_id=${context.project_id}`),
+        ]);
+        return {
+          project,
+          tasks_count: (tasks || []).length,
+          isolation_mode: true,
+          project_id: context.project_id,
+        };
+      }
       return apiCall("/dashboard/overview");
+
     case "solaria://projects/list":
+      if (isIsolated) {
+        const project = await apiCall(`/projects/${context.project_id}`);
+        return [project];
+      }
       return apiCall("/projects");
+
     case "solaria://tasks/list":
+      if (isIsolated) {
+        return apiCall(`/tasks?project_id=${context.project_id}`);
+      }
       return apiCall("/tasks");
+
     case "solaria://agents/list":
       return apiCall("/agents");
+
     default:
       throw new Error(`Unknown resource: ${uri}`);
   }
