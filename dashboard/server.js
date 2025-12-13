@@ -1018,14 +1018,21 @@ class SolariaDashboardServer {
                 deadline
             } = req.body;
 
+            // Convert undefined to null for MySQL compatibility
             const [result] = await this.db.execute(`
                 INSERT INTO tasks (
                     title, description, project_id, assigned_agent_id,
                     priority, estimated_hours, deadline, assigned_by
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `, [
-                title, description, project_id, assigned_agent_id,
-                priority, estimated_hours, deadline, req.user.userId
+                title,
+                description,
+                project_id ?? null,
+                assigned_agent_id ?? null,
+                priority,
+                estimated_hours ?? null,
+                deadline ?? null,
+                req.user.userId
             ]);
 
             res.status(201).json({
@@ -1743,10 +1750,19 @@ class SolariaDashboardServer {
                 status = 'pending'
             } = req.body;
 
+            // Convert undefined to null for MySQL compatibility
             const [result] = await this.db.execute(`
                 INSERT INTO tasks (title, description, project_id, assigned_agent_id, priority, estimated_hours, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            `, [title, description, project_id || 1, agent_id, priority, estimated_hours, status]);
+            `, [
+                title,
+                description,
+                project_id || 1,
+                agent_id ?? null,
+                priority,
+                estimated_hours ?? null,
+                status
+            ]);
 
             await this.db.execute(`
                 INSERT INTO activity_logs (project_id, agent_id, action, details, category, level)
