@@ -4286,26 +4286,45 @@
             },
 
             transformProjectsFromAPI(apiProjects) {
-                return apiProjects.map(p => ({
+                return apiProjects.map(p => {
+                    // Calculate phase dynamically based on task completion
+                    const totalTasks = p.task_count || 0;
+                    const completedTasks = p.completed_tasks || 0;
+                    const inProgressTasks = p.in_progress_tasks || 0;
+                    const completionPct = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+                    let calculatedPhase = p.status || 'planning';
+                    if (completionPct >= 90) {
+                        calculatedPhase = 'production';
+                    } else if (completionPct >= 60) {
+                        calculatedPhase = 'testing';
+                    } else if (inProgressTasks > 0 || completedTasks > 0) {
+                        calculatedPhase = 'development';
+                    }
+
+                    return {
                     id: p.id,
                     name: p.name,
                     description: p.description || '',
                     icon: this.getProjectIcon(p.name),
                     tags: this.generateProjectTags(p),
-                    phase: p.status || 'planning',
+                    phase: calculatedPhase,
                     stats: {
-                        tasks: p.task_count || 0,
+                        tasks: totalTasks,
                         pending: p.pending_tasks || 0,
-                        completed: p.completed_tasks || 0,
+                        inProgress: inProgressTasks,
+                        completed: completedTasks,
+                        review: p.review_tasks || 0,
+                        blocked: p.blocked_tasks || 0,
                         budget: parseFloat(p.budget) || 0,
                         client: p.client || '',
                         deadline: p.end_date || ''
                     },
                     board: {
-                        backlog: 0,
+                        backlog: p.blocked_tasks || 0,
                         todo: p.pending_tasks || 0,
-                        doing: 0,
-                        done: p.completed_tasks || 0
+                        doing: inProgressTasks + (p.review_tasks || 0),
+                        done: completedTasks
                     },
                     client: {
                         name: p.client || '',
@@ -4327,7 +4346,7 @@
                     documents: [],
                     requests: [],
                     manualTodos: []
-                }));
+                };});
             },
 
             transformBusinessesFromAPI(apiBusinesses) {
@@ -6117,7 +6136,7 @@
                             <i class="fas fa-tasks" style="color: #60a5fa;"></i> TAREAS
                             <i class="fas fa-chevron-right" style="float: right; color: var(--text-muted); font-size: 10px;"></i>
                         </h4>
-                        <div class="tasks-summary">
+                        <div class="tasks-summary" style="grid-template-columns: repeat(4, 1fr);">
                             <div class="tasks-summary-item">
                                 <div class="tasks-summary-value" style="color: #60a5fa;">${stats.tasks}</div>
                                 <div class="tasks-summary-label">Total</div>
@@ -6127,8 +6146,12 @@
                                 <div class="tasks-summary-label">Pend</div>
                             </div>
                             <div class="tasks-summary-item">
+                                <div class="tasks-summary-value" style="color: #3b82f6;">${stats.inProgress || 0}</div>
+                                <div class="tasks-summary-label">Doing</div>
+                            </div>
+                            <div class="tasks-summary-item">
                                 <div class="tasks-summary-value" style="color: #4ade80;">${stats.completed}</div>
-                                <div class="tasks-summary-label">Comp</div>
+                                <div class="tasks-summary-label">Done</div>
                             </div>
                         </div>
                         <div class="mini-trello">
@@ -6833,18 +6856,82 @@
             // TASKS DETAIL PAGE - Kanban & Gantt Views
             // ============================================
 
-            openTasksDetail() {
+            async openTasksDetail() {
                 const project = this.state.currentProject;
                 if (!project) {
                     console.warn('No project selected');
                     return;
                 }
 
-                // Generate mock tasks based on board data
-                const mockTasks = this.generateMockTasks(project);
-                this.state.tasksView = 'kanban'; // Default view
+                // Show loading state
+                this.elements.contentArea.innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 300px;">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: var(--solaria-orange);"></i>
+                        <span style="margin-left: 12px;">Cargando tareas...</span>
+                    </div>
+                `;
 
-                this.renderTasksDetailPage(project, mockTasks);
+                try {
+                    // Fetch real tasks from API
+                    const response = await fetch(`${this.apiBaseUrl}/api/public/tasks?project_id=${project.id}`);
+                    const data = await response.json();
+
+                    // Transform API tasks to UI format
+                    const tasks = this.transformTasksFromAPI(data.tasks || []);
+                    this.state.tasksView = 'kanban'; // Default view
+                    this.state.currentTasks = tasks; // Store for later use
+
+                    this.renderTasksDetailPage(project, tasks);
+                } catch (error) {
+                    console.error('Error fetching tasks:', error);
+                    // Fallback to mock data if API fails
+                    const mockTasks = this.generateMockTasks(project);
+                    this.state.tasksView = 'kanban';
+                    this.renderTasksDetailPage(project, mockTasks);
+                }
+            },
+
+            // Transform API task status to UI board status
+            mapTaskStatus(apiStatus) {
+                const statusMap = {
+                    'pending': 'todo',
+                    'in_progress': 'doing',
+                    'review': 'doing',
+                    'completed': 'done',
+                    'blocked': 'backlog',
+                    'cancelled': 'backlog'
+                };
+                return statusMap[apiStatus] || 'todo';
+            },
+
+            // Transform API priority to display format
+            formatPriority(priority) {
+                const priorityMap = {
+                    'critical': 'P0',
+                    'high': 'P1',
+                    'medium': 'P2',
+                    'low': 'P3'
+                };
+                return priorityMap[priority] || 'P2';
+            },
+
+            transformTasksFromAPI(apiTasks) {
+                return apiTasks.map(t => ({
+                    id: t.id,
+                    title: t.title,
+                    description: t.description || '',
+                    status: this.mapTaskStatus(t.status),
+                    originalStatus: t.status, // Keep original for display
+                    priority: t.priority,
+                    priorityLabel: this.formatPriority(t.priority),
+                    assignee: t.assigned_agent || t.assigned_to || 'Sin asignar',
+                    dueDate: t.deadline || t.due_date || '',
+                    createdAt: t.created_at,
+                    progress: t.progress || 0,
+                    estimatedHours: t.estimated_hours || 0,
+                    epic: t.epic || null,
+                    sprint: t.sprint || null
+                }));
             },
 
             generateMockTasks(project) {
@@ -6869,16 +6956,21 @@
                         const daysOffset = Math.floor(Math.random() * 30) - 15;
                         const dueDate = new Date();
                         dueDate.setDate(dueDate.getDate() + daysOffset);
+                        const priority = priorities[Math.floor(Math.random() * priorities.length)];
 
                         tasks.push({
                             id: id++,
                             title: availableTitles[i % availableTitles.length] || `Tarea ${id}`,
                             description: `Descripcion de la tarea para ${project.name}`,
                             status: status,
-                            priority: priorities[Math.floor(Math.random() * priorities.length)],
+                            originalStatus: status,
+                            priority: priority,
+                            priorityLabel: this.formatPriority(priority),
                             assignee: assignees[Math.floor(Math.random() * assignees.length)],
                             dueDate: dueDate.toISOString().split('T')[0],
-                            createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString()
+                            createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+                            progress: Math.floor(Math.random() * 100),
+                            estimatedHours: Math.floor(Math.random() * 40) + 8
                         });
                     }
                 });
@@ -7005,36 +7097,69 @@
                     critical: '#ef4444'
                 };
 
+                // P0-P3 notation for priority labels
                 const priorityLabels = {
-                    low: 'Baja',
-                    medium: 'Media',
-                    high: 'Alta',
-                    critical: 'Critica'
+                    low: 'P3',
+                    medium: 'P2',
+                    high: 'P1',
+                    critical: 'P0'
                 };
 
-                const dueDate = new Date(task.dueDate);
+                // Status labels for display
+                const statusLabels = {
+                    'pending': 'Pendiente',
+                    'in_progress': 'En Progreso',
+                    'review': 'En Revision',
+                    'completed': 'Completada',
+                    'blocked': 'Bloqueada',
+                    'cancelled': 'Cancelada'
+                };
+
+                const dueDate = task.dueDate ? new Date(task.dueDate) : null;
                 const today = new Date();
-                const isOverdue = dueDate < today && task.status !== 'done';
-                const daysRemaining = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+                const isOverdue = dueDate && dueDate < today && task.status !== 'done';
+                const daysRemaining = dueDate ? Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24)) : null;
+
+                // Use priorityLabel from transform if available, otherwise calculate
+                const pLabel = task.priorityLabel || priorityLabels[task.priority] || 'P2';
+                const pColor = priorityColors[task.priority] || '#3b82f6';
+
+                // Progress bar for in_progress tasks
+                const progressBar = task.progress > 0 ? `
+                    <div style="width: 100%; height: 3px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 6px; overflow: hidden;">
+                        <div style="width: ${task.progress}%; height: 100%; background: ${pColor}; border-radius: 2px;"></div>
+                    </div>
+                ` : '';
+
+                // Status chip for original status
+                const statusChip = task.originalStatus ? `
+                    <span style="font-size: 8px; padding: 1px 4px; background: var(--bg-tertiary); border-radius: 3px; color: var(--text-muted);">
+                        ${statusLabels[task.originalStatus] || task.originalStatus}
+                    </span>
+                ` : '';
 
                 return `
                     <div class="task-card" onclick="App.openTaskModal(${task.id})">
                         <div class="task-card-header">
                             <span class="task-card-title">${task.title}</span>
-                            <span class="priority-badge" style="background: ${priorityColors[task.priority]}20; color: ${priorityColors[task.priority]}; font-size: 9px; padding: 2px 6px; border-radius: 4px;">
-                                ${priorityLabels[task.priority]}
+                            <span class="priority-badge" style="background: ${pColor}20; color: ${pColor}; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">
+                                ${pLabel}
                             </span>
                         </div>
-                        <p class="task-card-desc">${task.description}</p>
+                        <p class="task-card-desc">${task.description || ''}</p>
+                        ${progressBar}
                         <div class="task-card-footer">
                             <div class="task-card-meta">
                                 <span class="task-card-assignee" style="display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted);">
                                     <i class="fas fa-user-circle"></i> ${task.assignee}
                                 </span>
+                                ${statusChip}
                             </div>
                             <div class="task-card-date ${isOverdue ? 'overdue' : ''}" style="${isOverdue ? 'color: #ef4444;' : ''}">
-                                <i class="fas fa-calendar"></i>
-                                ${isOverdue ? 'Vencida' : (daysRemaining <= 3 ? `${daysRemaining}d` : dueDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }))}
+                                ${dueDate ? `
+                                    <i class="fas fa-calendar"></i>
+                                    ${isOverdue ? 'Vencida' : (daysRemaining <= 3 ? `${daysRemaining}d` : dueDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }))}
+                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -7153,7 +7278,167 @@
             },
 
             openTaskModal(taskId) {
-                alert(`Ver/Editar tarea #${taskId}\n\n(Esta funcionalidad se conectara con la API)`);
+                // Find task from current tasks or fetch from API
+                const task = this.state.currentTasks?.find(t => t.id === taskId);
+
+                if (!task) {
+                    console.warn('Task not found:', taskId);
+                    return;
+                }
+
+                const priorityColors = {
+                    low: '#64748b',
+                    medium: '#3b82f6',
+                    high: '#f59e0b',
+                    critical: '#ef4444'
+                };
+
+                const statusLabels = {
+                    'pending': 'Pendiente',
+                    'in_progress': 'En Progreso',
+                    'review': 'En Revision',
+                    'completed': 'Completada',
+                    'blocked': 'Bloqueada',
+                    'cancelled': 'Cancelada'
+                };
+
+                const pLabel = task.priorityLabel || this.formatPriority(task.priority);
+                const pColor = priorityColors[task.priority] || '#3b82f6';
+                const statusLabel = statusLabels[task.originalStatus] || task.originalStatus || 'Sin estado';
+
+                const createdDate = task.createdAt ? new Date(task.createdAt).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                }) : 'N/A';
+
+                const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                }) : 'Sin fecha limite';
+
+                const modalHTML = `
+                    <div class="edit-modal-overlay" id="taskModalOverlay" onclick="App.closeTaskModal(event)">
+                        <div class="edit-modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+                            <div class="edit-modal-header" style="border-left: 4px solid ${pColor};">
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                                        <span style="background: ${pColor}20; color: ${pColor}; font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700;">
+                                            ${pLabel}
+                                        </span>
+                                        <span style="background: var(--bg-tertiary); padding: 3px 8px; border-radius: 4px; font-size: 11px;">
+                                            ${statusLabel}
+                                        </span>
+                                        <span style="color: var(--text-muted); font-size: 11px;">#${task.id}</span>
+                                    </div>
+                                    <h3 class="edit-modal-title" style="font-size: 16px;">${task.title}</h3>
+                                </div>
+                                <button class="edit-modal-close" onclick="App.closeTaskModal()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <div class="edit-modal-body" style="padding: 20px;">
+                                <!-- Description -->
+                                <div class="form-section" style="margin-bottom: 20px;">
+                                    <h4 class="form-section-title" style="margin-bottom: 8px;">
+                                        <i class="fas fa-align-left" style="color: var(--solaria-orange);"></i> Descripcion
+                                    </h4>
+                                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5;">
+                                        ${task.description || 'Sin descripcion'}
+                                    </p>
+                                </div>
+
+                                <!-- Progress Bar -->
+                                ${task.progress > 0 ? `
+                                    <div class="form-section" style="margin-bottom: 20px;">
+                                        <h4 class="form-section-title" style="margin-bottom: 8px;">
+                                            <i class="fas fa-tasks" style="color: var(--solaria-orange);"></i> Progreso
+                                        </h4>
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            <div style="flex: 1; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                                <div style="width: ${task.progress}%; height: 100%; background: ${pColor}; border-radius: 4px;"></div>
+                                            </div>
+                                            <span style="font-size: 14px; font-weight: 600; color: ${pColor};">${task.progress}%</span>
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                <!-- Details Grid -->
+                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                                    <div class="form-section">
+                                        <h4 class="form-section-title" style="margin-bottom: 6px;">
+                                            <i class="fas fa-user" style="color: #60a5fa;"></i> Asignado a
+                                        </h4>
+                                        <p style="font-size: 13px;">${task.assignee}</p>
+                                    </div>
+
+                                    <div class="form-section">
+                                        <h4 class="form-section-title" style="margin-bottom: 6px;">
+                                            <i class="fas fa-clock" style="color: #fbbf24;"></i> Horas Estimadas
+                                        </h4>
+                                        <p style="font-size: 13px;">${task.estimatedHours || 0}h</p>
+                                    </div>
+
+                                    <div class="form-section">
+                                        <h4 class="form-section-title" style="margin-bottom: 6px;">
+                                            <i class="fas fa-calendar-plus" style="color: #22c55e;"></i> Fecha Creacion
+                                        </h4>
+                                        <p style="font-size: 13px;">${createdDate}</p>
+                                    </div>
+
+                                    <div class="form-section">
+                                        <h4 class="form-section-title" style="margin-bottom: 6px;">
+                                            <i class="fas fa-calendar-check" style="color: #ef4444;"></i> Fecha Limite
+                                        </h4>
+                                        <p style="font-size: 13px;">${dueDate}</p>
+                                    </div>
+
+                                    ${task.epic ? `
+                                        <div class="form-section">
+                                            <h4 class="form-section-title" style="margin-bottom: 6px;">
+                                                <i class="fas fa-layer-group" style="color: #a855f7;"></i> Epic
+                                            </h4>
+                                            <p style="font-size: 13px;">${task.epic}</p>
+                                        </div>
+                                    ` : ''}
+
+                                    ${task.sprint ? `
+                                        <div class="form-section">
+                                            <h4 class="form-section-title" style="margin-bottom: 6px;">
+                                                <i class="fas fa-running" style="color: #14b8a6;"></i> Sprint
+                                            </h4>
+                                            <p style="font-size: 13px;">${task.sprint}</p>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+
+                            <div class="edit-modal-footer" style="justify-content: space-between;">
+                                <button class="btn-secondary" onclick="App.closeTaskModal()">
+                                    Cerrar
+                                </button>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn-secondary" onclick="alert('Edicion via API - Proximamente')">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </button>
+                                    <button class="btn-primary" onclick="alert('Cambiar estado via API - Proximamente')">
+                                        <i class="fas fa-check"></i> Marcar Completada
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+            },
+
+            closeTaskModal(e) {
+                if (e && e.target !== e.currentTarget) return;
+                const overlay = document.getElementById('taskModalOverlay');
+                if (overlay) overlay.remove();
             },
 
             goBackToProjectDetail() {
