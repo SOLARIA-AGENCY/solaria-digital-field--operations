@@ -1,8 +1,33 @@
 # SOLARIA Digital Field Operations
 
-**Oficina Digital de Construccion en Campo** - Version 3.1.0
+**Oficina Digital de Construccion en Campo** - Version 3.2.0
 
 Sistema centralizado para gestion de proyectos de software con supervision ejecutiva (CEO/CTO/COO/CFO) e integracion con agentes IA via MCP.
+
+## Estado Actual
+
+| Servicio | Estado | URL |
+|----------|--------|-----|
+| Dashboard | ✅ Online | https://dfo.solaria.agency |
+| MCP Server | ✅ Online | https://dfo.solaria.agency/mcp |
+| API REST | ✅ Online | https://dfo.solaria.agency/api |
+| Public API | ✅ Online | https://dfo.solaria.agency/api/public |
+
+### Verificar Conexion MCP
+
+```bash
+# Health check
+curl https://dfo.solaria.agency/mcp/health
+
+# Respuesta esperada:
+# {"status":"ok","timestamp":"...","dashboard":"connected","sessions":0}
+
+# Listar herramientas MCP disponibles
+curl -X POST https://dfo.solaria.agency/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer default" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
 
 ## Arquitectura Centralizada
 
@@ -335,7 +360,45 @@ curl https://dfo.your-domain.com/mcp/health
 
 ---
 
-## API REST
+## API Publica (Sin Autenticacion)
+
+Endpoints disponibles para el PWA Dashboard y acceso publico (solo lectura):
+
+```bash
+# Proyectos
+GET /api/public/projects      # Lista todos los proyectos con stats
+GET /api/public/businesses    # Lista todos los negocios
+GET /api/public/tasks         # Lista todas las tareas
+GET /api/public/tasks?project_id=1  # Tareas filtradas por proyecto
+GET /api/public/dashboard     # Stats agregados
+
+# Ejemplo
+curl https://dfo.solaria.agency/api/public/projects
+```
+
+### Respuesta de ejemplo `/api/public/projects`:
+```json
+{
+  "projects": [
+    {
+      "id": 2,
+      "name": "Akademate.com",
+      "description": "Plataforma SaaS multitenant...",
+      "client": "Akademate SaaS",
+      "status": "planning",
+      "priority": "critical",
+      "budget": "250000.00",
+      "task_count": 12,
+      "pending_tasks": 12,
+      "completed_tasks": 0
+    }
+  ]
+}
+```
+
+---
+
+## API REST (Requiere Autenticacion)
 
 ### Autenticacion
 ```

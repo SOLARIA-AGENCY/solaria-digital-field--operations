@@ -1,7 +1,7 @@
 # SOLARIA Digital Field Operations - Oficina de Construcción en Campo
 
-**Versión:** 3.1.0
-**Última actualización:** 2025-12-13
+**Versión:** 3.2.0
+**Última actualización:** 2025-12-14
 
 ---
 
@@ -12,9 +12,16 @@
 | Recurso | URL |
 |---------|-----|
 | Dashboard | https://dfo.solaria.agency |
-| API | https://dfo.solaria.agency/api |
+| API (Auth) | https://dfo.solaria.agency/api |
+| API Publica | https://dfo.solaria.agency/api/public |
 | MCP HTTP | https://dfo.solaria.agency/mcp |
 | Health Check | https://dfo.solaria.agency/mcp/health |
+
+**API Publica (Sin auth):**
+- `GET /api/public/projects` - Lista proyectos
+- `GET /api/public/businesses` - Lista negocios
+- `GET /api/public/tasks` - Lista tareas
+- `GET /api/public/dashboard` - Stats agregados
 
 **Credenciales Dashboard:**
 - Usuario: `carlosjperez`
