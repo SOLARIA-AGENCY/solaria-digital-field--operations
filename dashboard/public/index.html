@@ -6872,8 +6872,8 @@
                 `;
 
                 try {
-                    // Fetch real tasks from API
-                    const response = await fetch(`${this.apiBaseUrl}/api/public/tasks?project_id=${project.id}`);
+                    // Fetch real tasks from API (using relative URL)
+                    const response = await fetch(`/api/public/tasks?project_id=${project.id}`);
                     const data = await response.json();
 
                     // Transform API tasks to UI format
@@ -6887,6 +6887,7 @@
                     // Fallback to mock data if API fails
                     const mockTasks = this.generateMockTasks(project);
                     this.state.tasksView = 'kanban';
+                    this.state.currentTasks = mockTasks; // Store mock tasks too!
                     this.renderTasksDetailPage(project, mockTasks);
                 }
             },
@@ -7182,40 +7183,58 @@
                 const totalDays = 8 * 7; // 8 weeks
                 const startDate = weeks[0].start;
 
+                const priorityColors = {
+                    low: '#64748b',
+                    medium: '#3b82f6',
+                    high: '#f59e0b',
+                    critical: '#ef4444'
+                };
+
+                // Filter and sort tasks for Gantt
+                const ganttTasks = tasks
+                    .filter(t => t.status !== 'done')
+                    .sort((a, b) => {
+                        const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+                        return (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
+                    })
+                    .slice(0, 15);
+
                 return `
                     <div class="gantt-container" style="background: var(--bg-secondary); border-radius: 12px; padding: 16px;">
-                        <div class="gantt-header" style="padding-left: 200px;">
+                        <div class="gantt-header" style="padding-left: 250px;">
                             ${weeks.map(w => `<div class="gantt-header-cell">${w.label}</div>`).join('')}
                         </div>
                         <div class="gantt-body">
-                            ${tasks.filter(t => t.status !== 'done').slice(0, 12).map(task => {
-                                const taskDue = new Date(task.dueDate);
-                                const taskStart = new Date(task.createdAt);
+                            ${ganttTasks.map(task => {
+                                const taskDue = task.dueDate ? new Date(task.dueDate) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+                                const taskStart = task.createdAt ? new Date(task.createdAt) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
                                 // Calculate positions
                                 const startOffset = Math.max(0, Math.floor((taskStart - startDate) / (1000 * 60 * 60 * 24)));
-                                const duration = Math.max(3, Math.ceil((taskDue - taskStart) / (1000 * 60 * 60 * 24)));
+                                const duration = Math.max(5, Math.ceil((taskDue - taskStart) / (1000 * 60 * 60 * 24)));
 
-                                const leftPercent = (startOffset / totalDays) * 100;
-                                const widthPercent = Math.min((duration / totalDays) * 100, 100 - leftPercent);
+                                const leftPercent = Math.max(0, Math.min(95, (startOffset / totalDays) * 100));
+                                const widthPercent = Math.max(5, Math.min((duration / totalDays) * 100, 100 - leftPercent));
 
-                                const statusColors = {
-                                    backlog: '#64748b',
-                                    todo: '#f59e0b',
-                                    doing: '#3b82f6',
-                                    done: '#22c55e'
-                                };
+                                const pColor = priorityColors[task.priority] || '#3b82f6';
+                                const pLabel = task.priorityLabel || this.formatPriority(task.priority);
 
                                 return `
-                                    <div class="gantt-row">
-                                        <div class="gantt-row-label">${task.title}</div>
+                                    <div class="gantt-row" onclick="App.openTaskModal(${task.id})" style="cursor: pointer;">
+                                        <div class="gantt-row-label" style="display: flex; align-items: center; gap: 8px;">
+                                            <span style="background: ${pColor}20; color: ${pColor}; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700;">${pLabel}</span>
+                                            <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${task.title}</span>
+                                        </div>
                                         <div class="gantt-row-bars">
-                                            <div class="gantt-bar" style="left: ${leftPercent}%; width: ${widthPercent}%; background: ${statusColors[task.status]}; opacity: 0.8;"></div>
+                                            <div class="gantt-bar" style="left: ${leftPercent}%; width: ${widthPercent}%; background: ${pColor}; opacity: 0.85; border-radius: 4px;">
+                                                ${task.progress > 0 ? `<div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${task.progress}%; background: ${pColor}; opacity: 1; border-radius: 4px 0 0 4px;"></div>` : ''}
+                                            </div>
                                         </div>
                                     </div>
                                 `;
                             }).join('')}
                         </div>
+                        ${ganttTasks.length === 0 ? '<div style="text-align: center; padding: 40px; color: var(--text-muted);">No hay tareas pendientes para mostrar en el Gantt</div>' : ''}
                     </div>
                 `;
             },
@@ -7226,15 +7245,23 @@
                     return statusOrder[a.status] - statusOrder[b.status];
                 });
 
+                const priorityColors = {
+                    low: '#64748b',
+                    medium: '#3b82f6',
+                    high: '#f59e0b',
+                    critical: '#ef4444'
+                };
+
                 return `
                     <div class="project-card" style="padding: 0; overflow: hidden;">
                         <table class="list-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 40%;">Tarea</th>
-                                    <th style="width: 15%;">Estado</th>
-                                    <th style="width: 15%;">Prioridad</th>
-                                    <th style="width: 15%;">Asignado</th>
+                                    <th style="width: 35%;">Tarea</th>
+                                    <th style="width: 12%;">Estado</th>
+                                    <th style="width: 10%;">Prioridad</th>
+                                    <th style="width: 10%;">Progreso</th>
+                                    <th style="width: 18%;">Asignado</th>
                                     <th style="width: 15%;">Fecha</th>
                                 </tr>
                             </thead>
@@ -7242,13 +7269,15 @@
                                 ${sortedTasks.map(task => {
                                     const statusLabels = { backlog: 'Backlog', todo: 'Por Hacer', doing: 'En Progreso', done: 'Completada' };
                                     const statusColors = { backlog: '#64748b', todo: '#f59e0b', doing: '#3b82f6', done: '#22c55e' };
-                                    const priorityLabels = { low: 'Baja', medium: 'Media', high: 'Alta', critical: 'Critica' };
+                                    const pLabel = task.priorityLabel || this.formatPriority(task.priority);
+                                    const pColor = priorityColors[task.priority] || '#3b82f6';
+                                    const dueStr = task.dueDate ? new Date(task.dueDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : '-';
 
                                     return `
                                         <tr onclick="App.openTaskModal(${task.id})" style="cursor: pointer;">
                                             <td>
                                                 <div style="font-weight: 500;">${task.title}</div>
-                                                <div style="font-size: 11px; color: var(--text-muted);">${task.description}</div>
+                                                <div style="font-size: 11px; color: var(--text-muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${task.description || ''}</div>
                                             </td>
                                             <td>
                                                 <span style="display: inline-flex; align-items: center; gap: 6px;">
@@ -7256,9 +7285,21 @@
                                                     ${statusLabels[task.status]}
                                                 </span>
                                             </td>
-                                            <td>${priorityLabels[task.priority]}</td>
-                                            <td>${task.assignee}</td>
-                                            <td>${new Date(task.dueDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</td>
+                                            <td>
+                                                <span style="background: ${pColor}20; color: ${pColor}; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;">
+                                                    ${pLabel}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <div style="flex: 1; height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
+                                                        <div style="width: ${task.progress || 0}%; height: 100%; background: ${pColor};"></div>
+                                                    </div>
+                                                    <span style="font-size: 10px; color: var(--text-muted);">${task.progress || 0}%</span>
+                                                </div>
+                                            </td>
+                                            <td style="font-size: 12px;">${task.assignee}</td>
+                                            <td style="font-size: 12px;">${dueStr}</td>
                                         </tr>
                                     `;
                                 }).join('')}
@@ -7270,7 +7311,14 @@
 
             switchTasksView(view) {
                 this.state.tasksView = view;
-                this.openTasksDetail(); // Re-render with new view
+                // Re-render with cached tasks if available
+                const project = this.state.currentProject;
+                const tasks = this.state.currentTasks;
+                if (project && tasks && tasks.length > 0) {
+                    this.renderTasksDetailPage(project, tasks);
+                } else {
+                    this.openTasksDetail(); // Fetch fresh if no cached tasks
+                }
             },
 
             createNewTask(status = 'backlog') {
