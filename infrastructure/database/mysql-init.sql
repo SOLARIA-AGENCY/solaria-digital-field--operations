@@ -247,6 +247,86 @@ INSERT INTO activity_logs (project_id, agent_id, action, details, category, leve
 (1, 10, 'security_scan', 'Security scan completed - no critical issues', 'security', 'info');
 
 -- ============================================================================
+-- PROJECT EXTENDED DATA (PWA Dashboard v2.0)
+-- Client info, documents, and client requests per project
+-- ============================================================================
+
+-- Project Clients table - Extended client information per project
+CREATE TABLE IF NOT EXISTS project_clients (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL UNIQUE,
+    name VARCHAR(200) NOT NULL,
+    fiscal_name VARCHAR(300),
+    rfc VARCHAR(20),
+    website VARCHAR(255),
+    address TEXT,
+    fiscal_address TEXT,
+    contact_name VARCHAR(200),
+    contact_email VARCHAR(100),
+    contact_phone VARCHAR(50),
+    logo_url VARCHAR(500),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_project (project_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Project Documents table - Files and documents per project
+CREATE TABLE IF NOT EXISTS project_documents (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    name VARCHAR(300) NOT NULL,
+    type ENUM('spec', 'contract', 'manual', 'design', 'report', 'other') DEFAULT 'other',
+    url VARCHAR(500) NOT NULL,
+    description TEXT,
+    file_size INT,
+    uploaded_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_project (project_id),
+    INDEX idx_type (type),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Project Requests table - Client requests/petitions per project
+CREATE TABLE IF NOT EXISTS project_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    text TEXT NOT NULL,
+    status ENUM('pending', 'approved', 'in_review', 'in_progress', 'completed', 'rejected') DEFAULT 'pending',
+    priority ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+    requested_by VARCHAR(200),
+    assigned_to INT,
+    notes TEXT,
+    resolved_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_project (project_id),
+    INDEX idx_status (status),
+    INDEX idx_priority (priority),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_to) REFERENCES ai_agents(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Insert demo client data for existing project
+INSERT INTO project_clients (project_id, name, fiscal_name, rfc, website, address, contact_name, contact_email, contact_phone) VALUES
+(1, 'SOLARIA AGENCY', 'SOLARIA AGENCY S.A. de C.V.', 'SOL240101XXX', 'https://solaria.agency', 'Av. Reforma 123, Col. Centro, CDMX, Mexico', 'Carlos J. Perez', 'carlos@solaria.agency', '+52 55 1234 5678');
+
+-- Insert demo documents
+INSERT INTO project_documents (project_id, name, type, url, description, uploaded_by) VALUES
+(1, 'Arquitectura v3.0', 'spec', '#', 'Documento de arquitectura del sistema DFO', 1),
+(1, 'CLAUDE.md', 'manual', '#', 'Instrucciones para agentes IA', 1),
+(1, 'Contrato de Desarrollo', 'contract', '#', 'Contrato interno SOLARIA', 1);
+
+-- Insert demo requests
+INSERT INTO project_requests (project_id, text, status, priority, requested_by) VALUES
+(1, 'Vista Kanban fullscreen para iPad', 'in_progress', 'high', 'Carlos J. Perez'),
+(1, 'Integracion MCP remota', 'completed', 'high', 'Carlos J. Perez'),
+(1, 'PWA Dashboard responsive con pagina de ficha', 'in_progress', 'critical', 'Carlos J. Perez');
+
+-- ============================================================================
 -- MEMORY SYSTEM (Integrated from Memora)
 -- Persistent agent memory with full-text search and cross-references
 -- ============================================================================

@@ -327,6 +327,109 @@ export const toolDefinitions = [
   },
 
   // ============================================================================
+  // PROJECT EXTENDED DATA TOOLS (PWA Dashboard v2.0)
+  // Client info, documents, and requests per project
+  // ============================================================================
+  {
+    name: "get_project_client",
+    description: "Get client information for a project (name, fiscal data, contact info)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "number", description: "Project ID" },
+      },
+      required: ["project_id"],
+    },
+  },
+  {
+    name: "update_project_client",
+    description: "Update or create client information for a project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "number", description: "Project ID" },
+        name: { type: "string", description: "Client commercial name" },
+        fiscal_name: { type: "string", description: "Client fiscal/legal name" },
+        rfc: { type: "string", description: "Tax ID (RFC in Mexico)" },
+        website: { type: "string", description: "Client website URL" },
+        address: { type: "string", description: "Physical address" },
+        contact_name: { type: "string", description: "Primary contact person" },
+        contact_email: { type: "string", description: "Contact email" },
+        contact_phone: { type: "string", description: "Contact phone" },
+      },
+      required: ["project_id", "name"],
+    },
+  },
+  {
+    name: "get_project_documents",
+    description: "Get all documents associated with a project (specs, contracts, manuals, designs)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "number", description: "Project ID" },
+      },
+      required: ["project_id"],
+    },
+  },
+  {
+    name: "create_project_document",
+    description: "Add a new document to a project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "number", description: "Project ID" },
+        name: { type: "string", description: "Document name" },
+        type: { type: "string", enum: ["spec", "contract", "manual", "design", "report", "other"], description: "Document type" },
+        url: { type: "string", description: "Document URL" },
+        description: { type: "string", description: "Document description" },
+      },
+      required: ["project_id", "name", "url"],
+    },
+  },
+  {
+    name: "get_project_requests",
+    description: "Get all client requests/petitions for a project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "number", description: "Project ID" },
+        status: { type: "string", enum: ["pending", "approved", "in_review", "in_progress", "completed", "rejected"], description: "Filter by status" },
+        priority: { type: "string", enum: ["low", "medium", "high", "critical"], description: "Filter by priority" },
+      },
+      required: ["project_id"],
+    },
+  },
+  {
+    name: "create_project_request",
+    description: "Create a new client request/petition for a project",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "number", description: "Project ID" },
+        text: { type: "string", description: "Request description" },
+        priority: { type: "string", enum: ["low", "medium", "high", "critical"], description: "Request priority" },
+        requested_by: { type: "string", description: "Name of person who made the request" },
+      },
+      required: ["project_id", "text"],
+    },
+  },
+  {
+    name: "update_project_request",
+    description: "Update a client request status or details",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "number", description: "Project ID" },
+        request_id: { type: "number", description: "Request ID" },
+        status: { type: "string", enum: ["pending", "approved", "in_review", "in_progress", "completed", "rejected"], description: "New status" },
+        priority: { type: "string", enum: ["low", "medium", "high", "critical"], description: "New priority" },
+        notes: { type: "string", description: "Update notes" },
+      },
+      required: ["project_id", "request_id"],
+    },
+  },
+
+  // ============================================================================
   // MEMORY TOOLS (Integrated from Memora)
   // Persistent agent memory with full-text search and cross-references
   // ============================================================================
@@ -880,6 +983,86 @@ export async function executeTool(name, args, apiCall, context = {}) {
         return (allDocs || []).filter(d => d.project_id === context.project_id);
       }
       return apiCall("/docs/list");
+
+    // ========================================================================
+    // PROJECT EXTENDED DATA TOOLS (PWA Dashboard v2.0) - Project Isolated
+    // ========================================================================
+    case "get_project_client":
+      const clientProjectId = isIsolated ? context.project_id : args.project_id;
+      if (!clientProjectId) return { error: "project_id required" };
+      return apiCall(`/projects/${clientProjectId}/client`);
+
+    case "update_project_client":
+      const updateClientProjectId = isIsolated ? context.project_id : args.project_id;
+      if (!updateClientProjectId) return { error: "project_id required" };
+      if (!args.name) return { error: "name required" };
+      return apiCall(`/projects/${updateClientProjectId}/client`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: args.name,
+          fiscal_name: args.fiscal_name,
+          rfc: args.rfc,
+          website: args.website,
+          address: args.address,
+          contact_name: args.contact_name,
+          contact_email: args.contact_email,
+          contact_phone: args.contact_phone,
+        }),
+      });
+
+    case "get_project_documents":
+      const docsProjectId = isIsolated ? context.project_id : args.project_id;
+      if (!docsProjectId) return { error: "project_id required" };
+      return apiCall(`/projects/${docsProjectId}/documents`);
+
+    case "create_project_document":
+      const newDocProjectId = isIsolated ? context.project_id : args.project_id;
+      if (!newDocProjectId) return { error: "project_id required" };
+      if (!args.name || !args.url) return { error: "name and url required" };
+      return apiCall(`/projects/${newDocProjectId}/documents`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: args.name,
+          type: args.type || "other",
+          url: args.url,
+          description: args.description,
+        }),
+      });
+
+    case "get_project_requests":
+      const reqsProjectId = isIsolated ? context.project_id : args.project_id;
+      if (!reqsProjectId) return { error: "project_id required" };
+      let reqsUrl = `/projects/${reqsProjectId}/requests`;
+      const reqsParams = [];
+      if (args.status) reqsParams.push(`status=${args.status}`);
+      if (args.priority) reqsParams.push(`priority=${args.priority}`);
+      if (reqsParams.length > 0) reqsUrl += `?${reqsParams.join("&")}`;
+      return apiCall(reqsUrl);
+
+    case "create_project_request":
+      const newReqProjectId = isIsolated ? context.project_id : args.project_id;
+      if (!newReqProjectId) return { error: "project_id required" };
+      if (!args.text) return { error: "text required" };
+      return apiCall(`/projects/${newReqProjectId}/requests`, {
+        method: "POST",
+        body: JSON.stringify({
+          text: args.text,
+          priority: args.priority || "medium",
+          requested_by: args.requested_by,
+        }),
+      });
+
+    case "update_project_request":
+      const updateReqProjectId = isIsolated ? context.project_id : args.project_id;
+      if (!updateReqProjectId || !args.request_id) return { error: "project_id and request_id required" };
+      return apiCall(`/projects/${updateReqProjectId}/requests/${args.request_id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          status: args.status,
+          priority: args.priority,
+          notes: args.notes,
+        }),
+      });
 
     // ========================================================================
     // MEMORY TOOLS - Project Isolated

@@ -156,6 +156,17 @@ class SolariaDashboardServer {
         this.app.put('/api/projects/:id', this.updateProject.bind(this));
         this.app.delete('/api/projects/:id', this.deleteProject.bind(this));
 
+        // Project Extended Data (PWA Dashboard v2.0)
+        this.app.get('/api/projects/:id/client', this.getProjectClient.bind(this));
+        this.app.put('/api/projects/:id/client', this.updateProjectClient.bind(this));
+        this.app.get('/api/projects/:id/documents', this.getProjectDocuments.bind(this));
+        this.app.post('/api/projects/:id/documents', this.createProjectDocument.bind(this));
+        this.app.delete('/api/projects/:id/documents/:docId', this.deleteProjectDocument.bind(this));
+        this.app.get('/api/projects/:id/requests', this.getProjectRequests.bind(this));
+        this.app.post('/api/projects/:id/requests', this.createProjectRequest.bind(this));
+        this.app.put('/api/projects/:id/requests/:reqId', this.updateProjectRequest.bind(this));
+        this.app.delete('/api/projects/:id/requests/:reqId', this.deleteProjectRequest.bind(this));
+
         // Gestión de agentes IA
         this.app.get('/api/agents', this.getAgents.bind(this));
         this.app.get('/api/agents/:id', this.getAgent.bind(this));
@@ -788,6 +799,257 @@ class SolariaDashboardServer {
 
         } catch (error) {
             res.status(500).json({ error: 'Failed to delete project' });
+        }
+    }
+
+    // ========== PROJECT EXTENDED DATA (PWA Dashboard v2.0) ==========
+
+    async getProjectClient(req, res) {
+        try {
+            const { id } = req.params;
+
+            const [rows] = await this.db.execute(`
+                SELECT * FROM project_clients WHERE project_id = ?
+            `, [id]);
+
+            if (rows.length === 0) {
+                return res.json({ client: null, message: 'No client info found' });
+            }
+
+            res.json({ client: rows[0] });
+
+        } catch (error) {
+            console.error('Error getting project client:', error);
+            res.status(500).json({ error: 'Failed to get project client' });
+        }
+    }
+
+    async updateProjectClient(req, res) {
+        try {
+            const { id } = req.params;
+            const { name, fiscal_name, rfc, website, address, fiscal_address, contact_name, contact_email, contact_phone, logo_url, notes } = req.body;
+
+            // Check if client exists
+            const [existing] = await this.db.execute(`
+                SELECT id FROM project_clients WHERE project_id = ?
+            `, [id]);
+
+            if (existing.length === 0) {
+                // Insert new client
+                await this.db.execute(`
+                    INSERT INTO project_clients (project_id, name, fiscal_name, rfc, website, address, fiscal_address, contact_name, contact_email, contact_phone, logo_url, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `, [id, name, fiscal_name || null, rfc || null, website || null, address || null, fiscal_address || null, contact_name || null, contact_email || null, contact_phone || null, logo_url || null, notes || null]);
+            } else {
+                // Update existing
+                await this.db.execute(`
+                    UPDATE project_clients SET
+                        name = COALESCE(?, name),
+                        fiscal_name = COALESCE(?, fiscal_name),
+                        rfc = COALESCE(?, rfc),
+                        website = COALESCE(?, website),
+                        address = COALESCE(?, address),
+                        fiscal_address = COALESCE(?, fiscal_address),
+                        contact_name = COALESCE(?, contact_name),
+                        contact_email = COALESCE(?, contact_email),
+                        contact_phone = COALESCE(?, contact_phone),
+                        logo_url = COALESCE(?, logo_url),
+                        notes = COALESCE(?, notes)
+                    WHERE project_id = ?
+                `, [name, fiscal_name, rfc, website, address, fiscal_address, contact_name, contact_email, contact_phone, logo_url, notes, id]);
+            }
+
+            res.json({ message: 'Project client updated successfully' });
+
+        } catch (error) {
+            console.error('Error updating project client:', error);
+            res.status(500).json({ error: 'Failed to update project client' });
+        }
+    }
+
+    async getProjectDocuments(req, res) {
+        try {
+            const { id } = req.params;
+
+            const [rows] = await this.db.execute(`
+                SELECT pd.*, u.name as uploader_name
+                FROM project_documents pd
+                LEFT JOIN users u ON pd.uploaded_by = u.id
+                WHERE pd.project_id = ?
+                ORDER BY pd.created_at DESC
+            `, [id]);
+
+            res.json({ documents: rows });
+
+        } catch (error) {
+            console.error('Error getting project documents:', error);
+            res.status(500).json({ error: 'Failed to get project documents' });
+        }
+    }
+
+    async createProjectDocument(req, res) {
+        try {
+            const { id } = req.params;
+            const { name, type, url, description, file_size } = req.body;
+            const uploaded_by = req.user?.userId || null;
+
+            if (!name || !url) {
+                return res.status(400).json({ error: 'Name and URL are required' });
+            }
+
+            const [result] = await this.db.execute(`
+                INSERT INTO project_documents (project_id, name, type, url, description, file_size, uploaded_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [id, name, type || 'other', url, description || null, file_size || null, uploaded_by]);
+
+            res.status(201).json({
+                id: result.insertId,
+                message: 'Document created successfully'
+            });
+
+        } catch (error) {
+            console.error('Error creating project document:', error);
+            res.status(500).json({ error: 'Failed to create project document' });
+        }
+    }
+
+    async deleteProjectDocument(req, res) {
+        try {
+            const { id, docId } = req.params;
+
+            const [result] = await this.db.execute(`
+                DELETE FROM project_documents WHERE id = ? AND project_id = ?
+            `, [docId, id]);
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Document not found' });
+            }
+
+            res.json({ message: 'Document deleted successfully' });
+
+        } catch (error) {
+            console.error('Error deleting project document:', error);
+            res.status(500).json({ error: 'Failed to delete project document' });
+        }
+    }
+
+    async getProjectRequests(req, res) {
+        try {
+            const { id } = req.params;
+            const { status, priority } = req.query;
+
+            let query = `
+                SELECT pr.*, a.name as assigned_agent_name
+                FROM project_requests pr
+                LEFT JOIN ai_agents a ON pr.assigned_to = a.id
+                WHERE pr.project_id = ?
+            `;
+            const params = [id];
+
+            if (status) {
+                query += ' AND pr.status = ?';
+                params.push(status);
+            }
+            if (priority) {
+                query += ' AND pr.priority = ?';
+                params.push(priority);
+            }
+
+            query += ' ORDER BY pr.created_at DESC';
+
+            const [rows] = await this.db.execute(query, params);
+
+            res.json({ requests: rows });
+
+        } catch (error) {
+            console.error('Error getting project requests:', error);
+            res.status(500).json({ error: 'Failed to get project requests' });
+        }
+    }
+
+    async createProjectRequest(req, res) {
+        try {
+            const { id } = req.params;
+            const { text, status, priority, requested_by, assigned_to, notes } = req.body;
+
+            if (!text) {
+                return res.status(400).json({ error: 'Request text is required' });
+            }
+
+            const [result] = await this.db.execute(`
+                INSERT INTO project_requests (project_id, text, status, priority, requested_by, assigned_to, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [id, text, status || 'pending', priority || 'medium', requested_by || null, assigned_to || null, notes || null]);
+
+            res.status(201).json({
+                id: result.insertId,
+                message: 'Request created successfully'
+            });
+
+        } catch (error) {
+            console.error('Error creating project request:', error);
+            res.status(500).json({ error: 'Failed to create project request' });
+        }
+    }
+
+    async updateProjectRequest(req, res) {
+        try {
+            const { id, reqId } = req.params;
+            const { text, status, priority, assigned_to, notes } = req.body;
+
+            let query = 'UPDATE project_requests SET ';
+            const updates = [];
+            const params = [];
+
+            if (text !== undefined) { updates.push('text = ?'); params.push(text); }
+            if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+            if (priority !== undefined) { updates.push('priority = ?'); params.push(priority); }
+            if (assigned_to !== undefined) { updates.push('assigned_to = ?'); params.push(assigned_to); }
+            if (notes !== undefined) { updates.push('notes = ?'); params.push(notes); }
+
+            // If status is completed, set resolved_at
+            if (status === 'completed') {
+                updates.push('resolved_at = NOW()');
+            }
+
+            if (updates.length === 0) {
+                return res.status(400).json({ error: 'No fields to update' });
+            }
+
+            query += updates.join(', ') + ' WHERE id = ? AND project_id = ?';
+            params.push(reqId, id);
+
+            const [result] = await this.db.execute(query, params);
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Request not found' });
+            }
+
+            res.json({ message: 'Request updated successfully' });
+
+        } catch (error) {
+            console.error('Error updating project request:', error);
+            res.status(500).json({ error: 'Failed to update project request' });
+        }
+    }
+
+    async deleteProjectRequest(req, res) {
+        try {
+            const { id, reqId } = req.params;
+
+            const [result] = await this.db.execute(`
+                DELETE FROM project_requests WHERE id = ? AND project_id = ?
+            `, [reqId, id]);
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Request not found' });
+            }
+
+            res.json({ message: 'Request deleted successfully' });
+
+        } catch (error) {
+            console.error('Error deleting project request:', error);
+            res.status(500).json({ error: 'Failed to delete project request' });
         }
     }
 
