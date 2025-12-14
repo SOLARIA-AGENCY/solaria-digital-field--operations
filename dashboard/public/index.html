@@ -3523,6 +3523,152 @@
             production: { label: 'Produccion', value: 100, color: 'phase-4' }
         };
 
+        // ============================================
+        // API SERVICE - Conexion con Backend
+        // ============================================
+        const API = {
+            baseUrl: window.location.origin + '/api',
+            token: localStorage.getItem('dfo_token'),
+
+            async request(endpoint, options = {}) {
+                const url = `${this.baseUrl}${endpoint}`;
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                };
+
+                if (this.token) {
+                    headers['Authorization'] = `Bearer ${this.token}`;
+                }
+
+                try {
+                    const response = await fetch(url, {
+                        ...options,
+                        headers
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            this.logout();
+                            throw new Error('Session expired');
+                        }
+                        throw new Error(`API Error: ${response.status}`);
+                    }
+
+                    return await response.json();
+                } catch (error) {
+                    console.error(`API Error [${endpoint}]:`, error);
+                    throw error;
+                }
+            },
+
+            // Auth
+            async login(username, password) {
+                const data = await this.request('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password })
+                });
+                if (data.token) {
+                    this.token = data.token;
+                    localStorage.setItem('dfo_token', data.token);
+                    localStorage.setItem('dfo_user', JSON.stringify(data.user));
+                }
+                return data;
+            },
+
+            logout() {
+                this.token = null;
+                localStorage.removeItem('dfo_token');
+                localStorage.removeItem('dfo_user');
+            },
+
+            isAuthenticated() {
+                return !!this.token;
+            },
+
+            getUser() {
+                const user = localStorage.getItem('dfo_user');
+                return user ? JSON.parse(user) : null;
+            },
+
+            // Projects (Public - no auth required)
+            async getProjects() {
+                return this.request('/public/projects');
+            },
+
+            async getProject(id) {
+                return this.request(`/projects/${id}`);
+            },
+
+            async updateProject(id, data) {
+                return this.request(`/projects/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+            },
+
+            // Businesses (Public - no auth required)
+            async getBusinesses() {
+                return this.request('/public/businesses');
+            },
+
+            async getBusiness(id) {
+                return this.request(`/businesses/${id}`);
+            },
+
+            async updateBusiness(id, data) {
+                return this.request(`/businesses/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+            },
+
+            // Tasks (Public - no auth required)
+            async getTasks(projectId = null) {
+                const endpoint = projectId ? `/public/tasks?project_id=${projectId}` : '/public/tasks';
+                return this.request(endpoint);
+            },
+
+            async getTask(id) {
+                return this.request(`/tasks/${id}`);
+            },
+
+            async createTask(data) {
+                return this.request('/tasks', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+            },
+
+            async updateTask(id, data) {
+                return this.request(`/tasks/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+            },
+
+            // Dashboard
+            async getDashboard() {
+                return this.request('/dashboard');
+            },
+
+            // C-Suite
+            async getCEODashboard() {
+                return this.request('/csuite/ceo');
+            },
+
+            // Health check
+            async health() {
+                return this.request('/health');
+            }
+        };
+
+        // Data containers (populated from API)
+        let PROJECTS_DATA = [];
+        let BUSINESSES_DATA = [];
+        let TASKS_DATA = [];
+        let API_CONNECTED = false;
+
         /*
          * TAG CATEGORIES (3 fixed categories):
          * 1. TYPE (Tipo de Proyecto): WEBSITE, SAAS, ECOMM, DESIGN, PORTAL, API, APP
@@ -3531,7 +3677,8 @@
          *
          * Colors: blue=TYPE, green=TECH, purple=BIZ
          */
-        const PROJECTS_DATA = [
+        // FALLBACK DATA - Used when API is unavailable (offline mode)
+        const PROJECTS_DATA_FALLBACK = [
             {
                 id: 1,
                 name: 'Akademate.com',
@@ -3828,11 +3975,12 @@
         ];
 
         /**
-         * BUSINESSES_DATA - Negocios operativos y generando ingresos
+         * BUSINESSES_DATA_FALLBACK - Negocios operativos y generando ingresos
          * A diferencia de PROYECTOS (en desarrollo), estos son negocios consolidados
          * con metricas de facturacion, clientes activos, y gestiones de negocio.
+         * FALLBACK DATA - Used when API is unavailable (offline mode)
          */
-        const BUSINESSES_DATA = [
+        const BUSINESSES_DATA_FALLBACK = [
             {
                 id: 1,
                 name: 'Akademate Platform',
@@ -4075,11 +4223,15 @@
                 darkMode: localStorage.getItem('theme') !== 'light'
             },
 
-            init() {
+            async init() {
                 this.bindEvents();
                 this.restoreSidebarState();
                 this.restoreTheme();
                 this.updateOnlineStatus();
+
+                // Load data from API (with fallback to static data)
+                await this.loadDataFromAPI();
+
                 this.handleInitialRoute();
 
                 // Prevent default touch behaviors that cause bounce
@@ -4089,6 +4241,187 @@
                 }, { passive: false });
 
                 console.log('SOLARIA DFO PWA Dashboard initialized');
+                console.log(`API Connected: ${API_CONNECTED}, Projects: ${PROJECTS_DATA.length}, Businesses: ${BUSINESSES_DATA.length}`);
+            },
+
+            async loadDataFromAPI() {
+                try {
+                    // Try to load from API
+                    const [projectsRes, businessesRes, tasksRes] = await Promise.all([
+                        API.getProjects().catch(e => null),
+                        API.getBusinesses().catch(e => null),
+                        API.getTasks().catch(e => null)
+                    ]);
+
+                    if (projectsRes && projectsRes.projects) {
+                        PROJECTS_DATA = this.transformProjectsFromAPI(projectsRes.projects);
+                        API_CONNECTED = true;
+                        console.log(`Loaded ${PROJECTS_DATA.length} projects from API`);
+                    } else {
+                        PROJECTS_DATA = [...PROJECTS_DATA_FALLBACK];
+                        console.warn('Using fallback projects data');
+                    }
+
+                    if (businessesRes && businessesRes.businesses) {
+                        BUSINESSES_DATA = this.transformBusinessesFromAPI(businessesRes.businesses);
+                        console.log(`Loaded ${BUSINESSES_DATA.length} businesses from API`);
+                    } else {
+                        BUSINESSES_DATA = [...BUSINESSES_DATA_FALLBACK];
+                        console.warn('Using fallback businesses data');
+                    }
+
+                    if (tasksRes && tasksRes.tasks) {
+                        TASKS_DATA = tasksRes.tasks;
+                        console.log(`Loaded ${TASKS_DATA.length} tasks from API`);
+                    }
+
+                    this.updateConnectionStatus(API_CONNECTED);
+
+                } catch (error) {
+                    console.error('Error loading data from API:', error);
+                    PROJECTS_DATA = [...PROJECTS_DATA_FALLBACK];
+                    BUSINESSES_DATA = [...BUSINESSES_DATA_FALLBACK];
+                    this.updateConnectionStatus(false);
+                }
+            },
+
+            transformProjectsFromAPI(apiProjects) {
+                return apiProjects.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    description: p.description || '',
+                    icon: this.getProjectIcon(p.name),
+                    tags: this.generateProjectTags(p),
+                    phase: p.status || 'planning',
+                    stats: {
+                        tasks: p.task_count || 0,
+                        pending: p.pending_tasks || 0,
+                        completed: p.completed_tasks || 0,
+                        budget: parseFloat(p.budget) || 0,
+                        client: p.client || '',
+                        deadline: p.end_date || ''
+                    },
+                    board: {
+                        backlog: 0,
+                        todo: p.pending_tasks || 0,
+                        doing: 0,
+                        done: p.completed_tasks || 0
+                    },
+                    client: {
+                        name: p.client || '',
+                        website: '',
+                        address: '',
+                        fiscalName: '',
+                        rfc: '',
+                        contactName: '',
+                        contactEmail: '',
+                        contactPhone: ''
+                    },
+                    urls: {
+                        production: '',
+                        staging: '',
+                        local: '',
+                        repository: '',
+                        projectPortal: `https://dfo.solaria.agency/projects/${p.id}`
+                    },
+                    documents: [],
+                    requests: [],
+                    manualTodos: []
+                }));
+            },
+
+            transformBusinessesFromAPI(apiBusinesses) {
+                return apiBusinesses.map(b => ({
+                    id: b.id,
+                    name: b.name,
+                    description: b.description || '',
+                    icon: this.getBusinessIcon(b.name),
+                    category: 'GENERAL',
+                    status: b.status || 'inactive',
+                    metrics: {
+                        mrr: parseFloat(b.revenue) || 0,
+                        arr: (parseFloat(b.revenue) || 0) * 12,
+                        clients: 0,
+                        churnRate: 0,
+                        avgTicket: 0,
+                        growth: 0
+                    },
+                    billing: {
+                        lastInvoice: '',
+                        nextInvoice: '',
+                        paymentMethod: '',
+                        currency: 'MXN'
+                    },
+                    management: {
+                        admin: b.website || '',
+                        billing: '',
+                        analytics: '',
+                        support: ''
+                    },
+                    owner: {
+                        name: b.name,
+                        type: 'Producto propio',
+                        since: ''
+                    },
+                    tags: [
+                        { label: 'NEGOCIO', color: 'blue' }
+                    ]
+                }));
+            },
+
+            getProjectIcon(name) {
+                const iconMap = {
+                    'akademate': 'fa-graduation-cap',
+                    'inmobiliaria': 'fa-building',
+                    'adepac': 'fa-users',
+                    'solaria': 'fa-sun',
+                    'prilabsa': 'fa-globe',
+                    'default': 'fa-folder'
+                };
+                const key = Object.keys(iconMap).find(k => name.toLowerCase().includes(k));
+                return iconMap[key] || iconMap.default;
+            },
+
+            getBusinessIcon(name) {
+                const iconMap = {
+                    'akademate': 'fa-graduation-cap',
+                    'inscouter': 'fa-search',
+                    'nazcatrade': 'fa-chart-line',
+                    'solaria': 'fa-sun',
+                    'default': 'fa-briefcase'
+                };
+                const key = Object.keys(iconMap).find(k => name.toLowerCase().includes(k));
+                return iconMap[key] || iconMap.default;
+            },
+
+            generateProjectTags(project) {
+                const tags = [];
+                // TYPE tag
+                if (project.name.toLowerCase().includes('web')) {
+                    tags.push({ label: 'WEB', color: 'blue' });
+                } else if (project.name.toLowerCase().includes('saas') || project.name.toLowerCase().includes('akademate')) {
+                    tags.push({ label: 'SAAS', color: 'blue' });
+                } else {
+                    tags.push({ label: 'APP', color: 'blue' });
+                }
+                // TECH tag
+                tags.push({ label: 'REACT', color: 'green' });
+                // BIZ tag
+                tags.push({ label: 'B2B', color: 'purple' });
+                return tags;
+            },
+
+            updateConnectionStatus(connected) {
+                const statusDot = document.getElementById('statusDot');
+                const statusText = document.getElementById('statusText');
+                if (connected) {
+                    statusDot.classList.remove('offline');
+                    statusDot.classList.add('online');
+                    statusText.textContent = 'API Conectada';
+                } else {
+                    statusDot.classList.add('offline');
+                    statusText.textContent = 'Modo Offline';
+                }
             },
 
             bindEvents() {

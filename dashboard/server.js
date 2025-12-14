@@ -139,6 +139,12 @@ class SolariaDashboardServer {
         // Health check (sin autenticación) - antes del middleware
         this.app.get('/api/health', this.healthCheck.bind(this));
 
+        // PUBLIC ROUTES (sin autenticación) - para PWA Dashboard
+        this.app.get('/api/public/projects', this.getProjectsPublic.bind(this));
+        this.app.get('/api/public/businesses', this.getBusinessesPublic.bind(this));
+        this.app.get('/api/public/tasks', this.getTasksPublic.bind(this));
+        this.app.get('/api/public/dashboard', this.getDashboardPublic.bind(this));
+
         // Middleware de autenticación
         this.app.use('/api/', this.authenticateToken.bind(this));
 
@@ -572,7 +578,111 @@ class SolariaDashboardServer {
         }
     }
 
+    // ============================================
+    // PUBLIC ENDPOINTS (sin autenticación)
+    // ============================================
+
+    async getProjectsPublic(req, res) {
+        try {
+            const [projects] = await this.db.execute(`
+                SELECT
+                    p.id, p.name, p.description, p.client, p.status, p.priority,
+                    p.budget, p.start_date, p.end_date, p.completion_percentage,
+                    (SELECT COUNT(*) FROM tasks WHERE project_id = p.id) as task_count,
+                    (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'pending') as pending_tasks,
+                    (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'completed') as completed_tasks
+                FROM projects p
+                ORDER BY p.updated_at DESC
+                LIMIT 50
+            `);
+            res.json({ projects });
+        } catch (error) {
+            console.error('Error fetching public projects:', error);
+            res.status(500).json({ error: 'Failed to fetch projects' });
+        }
+    }
+
+    async getBusinessesPublic(req, res) {
+        try {
+            const [businesses] = await this.db.execute(`
+                SELECT id, name, description, website, status, revenue, expenses, profit, logo_url
+                FROM businesses
+                ORDER BY name
+            `);
+            res.json({ businesses });
+        } catch (error) {
+            console.error('Error fetching public businesses:', error);
+            res.status(500).json({ error: 'Failed to fetch businesses' });
+        }
+    }
+
+    async getTasksPublic(req, res) {
+        try {
+            const { project_id } = req.query;
+            let query = `
+                SELECT t.id, t.title, t.description, t.status, t.priority, t.progress,
+                       t.project_id, p.name as project_name
+                FROM tasks t
+                LEFT JOIN projects p ON t.project_id = p.id
+            `;
+            const params = [];
+            if (project_id) {
+                query += ' WHERE t.project_id = ?';
+                params.push(project_id);
+            }
+            query += ' ORDER BY t.updated_at DESC LIMIT 100';
+
+            const [tasks] = await this.db.execute(query, params);
+            res.json({ tasks });
+        } catch (error) {
+            console.error('Error fetching public tasks:', error);
+            res.status(500).json({ error: 'Failed to fetch tasks' });
+        }
+    }
+
+    async getDashboardPublic(req, res) {
+        try {
+            const [projectStats] = await this.db.execute(`
+                SELECT
+                    COUNT(*) as total_projects,
+                    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+                    COUNT(CASE WHEN status = 'development' THEN 1 END) as active,
+                    COUNT(CASE WHEN status = 'planning' THEN 1 END) as planning,
+                    SUM(budget) as total_budget
+                FROM projects
+            `);
+
+            const [taskStats] = await this.db.execute(`
+                SELECT
+                    COUNT(*) as total_tasks,
+                    COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+                    COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
+                    COUNT(CASE WHEN status = 'in_progress' THEN 1 END) as in_progress
+                FROM tasks
+            `);
+
+            const [businessStats] = await this.db.execute(`
+                SELECT
+                    COUNT(*) as total_businesses,
+                    COUNT(CASE WHEN status = 'active' THEN 1 END) as active,
+                    SUM(revenue) as total_revenue
+                FROM businesses
+            `);
+
+            res.json({
+                projects: projectStats[0],
+                tasks: taskStats[0],
+                businesses: businessStats[0]
+            });
+        } catch (error) {
+            console.error('Error fetching public dashboard:', error);
+            res.status(500).json({ error: 'Failed to fetch dashboard' });
+        }
+    }
+
+    // ============================================
     // Métodos de proyectos
+    // ============================================
     async getProjects(req, res) {
         try {
             const { status, priority, page = 1, limit = 20 } = req.query;
