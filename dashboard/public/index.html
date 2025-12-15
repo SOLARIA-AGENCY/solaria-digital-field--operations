@@ -3434,6 +3434,10 @@
                     <i class="fas fa-palette"></i>
                     <span>Design Hub</span>
                 </a>
+                <a href="#memorias" class="nav-item" data-page="memorias">
+                    <i class="fas fa-brain"></i>
+                    <span>Memorias</span>
+                </a>
             </nav>
 
             <!-- Sidebar Footer -->
@@ -4565,7 +4569,8 @@
                     'proyectos': { title: 'Proyectos', subtitle: `${PROJECTS_DATA.length} proyectos en desarrollo`, icon: 'fa-folder-open' },
                     'negocios': { title: 'Negocios', subtitle: `${BUSINESSES_DATA.length} negocios operativos`, icon: 'fa-briefcase' },
                     'infraestructura': { title: 'Infraestructura', subtitle: 'VPS, SSH, Cloudflare y accesos de gestion', icon: 'fa-server' },
-                    'design-hub': { title: 'Design Hub', subtitle: 'Componentes UI, tipografias y elementos graficos', icon: 'fa-palette' }
+                    'design-hub': { title: 'Design Hub', subtitle: 'Componentes UI, tipografias y elementos graficos', icon: 'fa-palette' },
+                    'memorias': { title: 'Memorias', subtitle: 'Memoria persistente a largo plazo de agentes IA', icon: 'fa-brain' }
                 };
                 return pages[page] || pages['dashboard'];
             },
@@ -4579,6 +4584,8 @@
                     this.renderInfrastructurePage();
                 } else if (page === 'design-hub') {
                     this.renderDesignHub();
+                } else if (page === 'memorias') {
+                    this.renderMemoriasPage();
                 } else {
                     const pageInfo = this.getPageInfo(page);
                     this.elements.contentArea.innerHTML = `
@@ -6097,6 +6104,344 @@
 
                     </div>
                 `;
+            },
+
+            // ============================================
+            // Memorias Page
+            // ============================================
+
+            async renderMemoriasPage() {
+                const pageInfo = this.getPageInfo('memorias');
+
+                this.elements.contentArea.innerHTML = `
+                    <div class="section-header">
+                        <div>
+                            <h1 class="section-title">${pageInfo.title}</h1>
+                            <p class="section-subtitle">${pageInfo.subtitle}</p>
+                        </div>
+                        <div class="section-actions" style="display: flex; gap: 12px; align-items: center;">
+                            <select id="memoryTagFilter" class="sort-btn" style="padding: 6px 12px; background: var(--bg-tertiary); border: 1px solid var(--border); color: var(--text-primary);">
+                                <option value="">Todos los tags</option>
+                            </select>
+                            <button class="btn-primary" onclick="App.showCreateMemoryModal()">
+                                <i class="fas fa-plus"></i> Nueva Memoria
+                            </button>
+                        </div>
+                    </div>
+                    <div id="memoriesStats" class="stats-row" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;"></div>
+                    <div id="memoriesContainer" class="scrollable" style="flex: 1; overflow-y: auto; padding-right: 8px;">
+                        <div class="loading-indicator" style="text-align: center; padding: 40px;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: var(--color-primary);"></i>
+                            <p style="color: var(--text-muted); margin-top: 12px;">Cargando memorias...</p>
+                        </div>
+                    </div>
+                `;
+
+                await this.loadMemories();
+            },
+
+            async loadMemories() {
+                try {
+                    // Fetch stats
+                    const statsRes = await fetch('/api/memories/stats', {
+                        headers: { 'Authorization': `Bearer ${this.state.token}` }
+                    });
+                    const stats = await statsRes.json();
+
+                    // Render stats
+                    document.getElementById('memoriesStats').innerHTML = `
+                        <div class="stat-card" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+                            <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">Total Memorias</div>
+                            <div style="font-size: 28px; font-weight: 700; color: var(--color-primary);">${stats.total || 0}</div>
+                        </div>
+                        <div class="stat-card" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+                            <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">Tags Unicos</div>
+                            <div style="font-size: 28px; font-weight: 700; color: #a855f7;">${stats.tags_count || 0}</div>
+                        </div>
+                        <div class="stat-card" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+                            <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">Importancia Promedio</div>
+                            <div style="font-size: 28px; font-weight: 700; color: #22c55e;">${((stats.avg_importance || 0) * 100).toFixed(0)}%</div>
+                        </div>
+                        <div class="stat-card" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+                            <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">Referencias Cruzadas</div>
+                            <div style="font-size: 28px; font-weight: 700; color: #3b82f6;">${stats.crossrefs_count || 0}</div>
+                        </div>
+                    `;
+
+                    // Fetch tags for filter
+                    const tagsRes = await fetch('/api/memories/tags', {
+                        headers: { 'Authorization': `Bearer ${this.state.token}` }
+                    });
+                    const tags = await tagsRes.json();
+
+                    const tagFilter = document.getElementById('memoryTagFilter');
+                    if (tagFilter && Array.isArray(tags)) {
+                        tagFilter.innerHTML = `<option value="">Todos los tags</option>` +
+                            tags.map(t => `<option value="${t.tag}">${t.tag} (${t.count})</option>`).join('');
+                        tagFilter.onchange = () => this.filterMemories(tagFilter.value);
+                    }
+
+                    // Fetch memories
+                    await this.filterMemories('');
+
+                } catch (error) {
+                    console.error('Error loading memories:', error);
+                    document.getElementById('memoriesContainer').innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 32px; color: var(--color-warning);"></i>
+                            <p style="margin-top: 12px;">Error al cargar memorias: ${error.message}</p>
+                        </div>
+                    `;
+                }
+            },
+
+            async filterMemories(tag) {
+                const container = document.getElementById('memoriesContainer');
+                container.innerHTML = `<div class="loading-indicator" style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin"></i></div>`;
+
+                try {
+                    const url = tag ? `/api/memories?tags=${tag}&limit=100` : '/api/memories?limit=100';
+                    const res = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${this.state.token}` }
+                    });
+                    const memories = await res.json();
+
+                    if (!Array.isArray(memories) || memories.length === 0) {
+                        container.innerHTML = `
+                            <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                                <i class="fas fa-brain" style="font-size: 48px; opacity: 0.3;"></i>
+                                <p style="margin-top: 12px;">No hay memorias ${tag ? `con tag "${tag}"` : ''}</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    container.innerHTML = `
+                        <div class="memories-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 16px;">
+                            ${memories.map(m => this.renderMemoryCard(m)).join('')}
+                        </div>
+                    `;
+                } catch (error) {
+                    container.innerHTML = `<div style="color: var(--color-error);">Error: ${error.message}</div>`;
+                }
+            },
+
+            renderMemoryCard(memory) {
+                const importanceColor = memory.importance >= 0.8 ? '#ef4444' :
+                                        memory.importance >= 0.5 ? '#f59e0b' : '#22c55e';
+                const tags = memory.tags ? (typeof memory.tags === 'string' ? JSON.parse(memory.tags) : memory.tags) : [];
+                const createdDate = new Date(memory.created_at).toLocaleDateString('es-ES', {
+                    day: '2-digit', month: 'short', year: '2-digit'
+                });
+                const contentPreview = memory.content.length > 200 ? memory.content.substring(0, 200) + '...' : memory.content;
+
+                return `
+                    <div class="memory-card" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; cursor: pointer;" onclick="App.viewMemoryDetail(${memory.id})">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                ${tags.map(t => `<span class="project-tag purple" style="font-size: 10px;">${t}</span>`).join('')}
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div style="width: 8px; height: 8px; border-radius: 50%; background: ${importanceColor};"></div>
+                                <span style="font-size: 10px; color: var(--text-muted);">${(memory.importance * 100).toFixed(0)}%</span>
+                            </div>
+                        </div>
+                        <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+                            ${contentPreview}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-muted);">
+                            <span><i class="fas fa-calendar-alt"></i> ${createdDate}</span>
+                            <span><i class="fas fa-eye"></i> ${memory.access_count || 0} accesos</span>
+                        </div>
+                    </div>
+                `;
+            },
+
+            async viewMemoryDetail(id) {
+                try {
+                    const res = await fetch(`/api/memories/${id}`, {
+                        headers: { 'Authorization': `Bearer ${this.state.token}` }
+                    });
+                    const memory = await res.json();
+
+                    // Fetch related memories
+                    const relatedRes = await fetch(`/api/memories/${id}/related`, {
+                        headers: { 'Authorization': `Bearer ${this.state.token}` }
+                    });
+                    const related = await relatedRes.json();
+
+                    const tags = memory.tags ? (typeof memory.tags === 'string' ? JSON.parse(memory.tags) : memory.tags) : [];
+                    const importanceColor = memory.importance >= 0.8 ? '#ef4444' :
+                                            memory.importance >= 0.5 ? '#f59e0b' : '#22c55e';
+
+                    const modal = document.createElement('div');
+                    modal.className = 'modal-overlay';
+                    modal.id = 'memoryDetailModal';
+                    modal.innerHTML = `
+                        <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+                            <div class="modal-header">
+                                <h2><i class="fas fa-brain" style="color: var(--color-primary);"></i> Memoria #${memory.id}</h2>
+                                <button class="modal-close" onclick="App.closeMemoryModal()">&times;</button>
+                            </div>
+                            <div class="modal-body" style="padding: 20px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
+                                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                        ${tags.map(t => `<span class="project-tag purple">${t}</span>`).join('')}
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span style="font-size: 12px; color: var(--text-muted);">Importancia:</span>
+                                        <div style="background: var(--bg-tertiary); border-radius: 20px; padding: 4px 12px; display: flex; align-items: center; gap: 6px;">
+                                            <div style="width: 10px; height: 10px; border-radius: 50%; background: ${importanceColor};"></div>
+                                            <span style="font-weight: 600;">${(memory.importance * 100).toFixed(0)}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 16px; margin-bottom: 16px; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">
+                                    ${memory.content}
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+                                    <div><i class="fas fa-calendar-plus"></i> Creado: ${new Date(memory.created_at).toLocaleString('es-ES')}</div>
+                                    <div><i class="fas fa-eye"></i> Accesos: ${memory.access_count || 0}</div>
+                                    <div><i class="fas fa-folder"></i> Proyecto: ${memory.project_id || 'Global'}</div>
+                                </div>
+                                ${related && related.length > 0 ? `
+                                    <div style="border-top: 1px solid var(--border); padding-top: 16px;">
+                                        <h3 style="font-size: 14px; margin-bottom: 12px;"><i class="fas fa-link"></i> Memorias Relacionadas</h3>
+                                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                                            ${related.map(r => `
+                                                <div style="background: var(--bg-tertiary); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;" onclick="App.viewMemoryDetail(${r.id})">
+                                                    ${r.content.substring(0, 100)}...
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="modal-footer" style="padding: 16px; border-top: 1px solid var(--border); display: flex; justify-content: space-between;">
+                                <button class="btn-secondary" onclick="App.boostMemory(${memory.id})">
+                                    <i class="fas fa-arrow-up"></i> Boost Importancia
+                                </button>
+                                <button class="btn-danger" onclick="App.deleteMemory(${memory.id})">
+                                    <i class="fas fa-trash"></i> Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(modal);
+                } catch (error) {
+                    alert('Error al cargar memoria: ' + error.message);
+                }
+            },
+
+            closeMemoryModal() {
+                const modal = document.getElementById('memoryDetailModal');
+                if (modal) modal.remove();
+                const createModal = document.getElementById('createMemoryModal');
+                if (createModal) createModal.remove();
+            },
+
+            showCreateMemoryModal() {
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay';
+                modal.id = 'createMemoryModal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 600px;">
+                        <div class="modal-header">
+                            <h2><i class="fas fa-plus-circle" style="color: var(--color-primary);"></i> Nueva Memoria</h2>
+                            <button class="modal-close" onclick="App.closeMemoryModal()">&times;</button>
+                        </div>
+                        <div class="modal-body" style="padding: 20px;">
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Contenido</label>
+                                <textarea id="memoryContent" style="width: 100%; min-height: 120px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; padding: 12px; color: var(--text-primary); font-size: 14px; resize: vertical;" placeholder="Escribe el contenido de la memoria..."></textarea>
+                            </div>
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Tags (separados por coma)</label>
+                                <input type="text" id="memoryTags" style="width: 100%; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text-primary);" placeholder="decision, architecture, config">
+                            </div>
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Importancia (0-1)</label>
+                                <input type="range" id="memoryImportance" min="0" max="1" step="0.1" value="0.5" style="width: 100%;">
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
+                                    <span>Baja</span>
+                                    <span id="importanceValue">50%</span>
+                                    <span>Alta</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="padding: 16px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 12px;">
+                            <button class="btn-secondary" onclick="App.closeMemoryModal()">Cancelar</button>
+                            <button class="btn-primary" onclick="App.createMemory()">
+                                <i class="fas fa-save"></i> Guardar
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                // Update importance display
+                document.getElementById('memoryImportance').oninput = (e) => {
+                    document.getElementById('importanceValue').textContent = (e.target.value * 100).toFixed(0) + '%';
+                };
+            },
+
+            async createMemory() {
+                const content = document.getElementById('memoryContent').value;
+                const tagsStr = document.getElementById('memoryTags').value;
+                const importance = parseFloat(document.getElementById('memoryImportance').value);
+
+                if (!content.trim()) {
+                    alert('El contenido es requerido');
+                    return;
+                }
+
+                const tags = tagsStr.split(',').map(t => t.trim()).filter(t => t);
+
+                try {
+                    const res = await fetch('/api/memories', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.state.token}`
+                        },
+                        body: JSON.stringify({ content, tags, importance })
+                    });
+
+                    if (!res.ok) throw new Error('Error al crear memoria');
+
+                    this.closeMemoryModal();
+                    await this.loadMemories();
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            },
+
+            async boostMemory(id) {
+                try {
+                    await fetch(`/api/memories/${id}/boost`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${this.state.token}` }
+                    });
+                    this.closeMemoryModal();
+                    await this.loadMemories();
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            },
+
+            async deleteMemory(id) {
+                if (!confirm('¿Estás seguro de eliminar esta memoria?')) return;
+
+                try {
+                    await fetch(`/api/memories/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${this.state.token}` }
+                    });
+                    this.closeMemoryModal();
+                    await this.loadMemories();
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
             },
 
             // ============================================

@@ -399,15 +399,88 @@ docker compose down -v
 
 ---
 
+## 🚀 Protocolo de Inicialización de Agentes IA
+
+> **OBLIGATORIO:** Todo agente IA que se conecte a SOLARIA DFO DEBE seguir este protocolo al inicio de cada sesión.
+
+### Paso 1: Registrar Contexto de Proyecto
+```javascript
+// PRIMERA llamada obligatoria
+set_project_context({ project_name: "Nombre del Proyecto" })
+```
+
+### Paso 2: Cargar Memoria Relevante
+```javascript
+// Buscar decisiones y contexto previo del proyecto
+memory_search({ query: "project context decisions", tags: ["decision", "context", "architecture"] })
+```
+
+### Paso 3: Verificar Estado del Proyecto
+```javascript
+// Ver tareas pendientes y estado general
+get_dashboard_overview()
+list_tasks({ status: "pending" })
+```
+
+### Buenas Prácticas de Memoria
+
+**Cuándo crear memorias (importance 0.7-1.0):**
+- Decisiones arquitectónicas importantes
+- Bugs encontrados y sus soluciones
+- Configuraciones críticas (API keys, endpoints)
+- Requisitos confirmados por el cliente
+- Patrones de código adoptados
+
+**Cuándo crear memorias (importance 0.3-0.6):**
+- Contexto de conversaciones
+- TODOs y notas para sesiones futuras
+- Feedback recibido
+
+**Tags recomendados:**
+- `decision` - Decisiones técnicas tomadas
+- `architecture` - Diseño de sistema
+- `bug` - Problemas encontrados
+- `solution` - Soluciones implementadas
+- `config` - Configuraciones
+- `requirement` - Requisitos del proyecto
+- `learning` - Aprendizajes
+- `context` - Contexto general
+
+### Ejemplo de Sesión Típica
+
+```
+1. Agente se conecta a SOLARIA DFO
+   ↓
+2. set_project_context({ project_name: "PRILABSA Website" })
+   ↓
+3. memory_search({ query: "arquitectura decisiones recientes" })
+   ↓  → Recupera: "Usamos Payload CMS, React 19, TailwindCSS 4"
+4. list_tasks({ status: "in_progress" })
+   ↓  → Ve: "Implementar formulario de contacto"
+5. [Trabaja en la tarea...]
+   ↓
+6. memory_create({
+     content: "Formulario implementado con validación Zod y honeypot anti-spam",
+     tags: ["solution", "implementation"],
+     importance: 0.7
+   })
+   ↓
+7. complete_task({ task_id: 123, notes: "Formulario completo con validación" })
+```
+
+---
+
 ## Notas para Agentes IA
 
 1. **MCP Remoto**: Usar `https://dfo.solaria.agency/mcp` para integración
 2. **Dashboard**: `https://dfo.solaria.agency` - Credenciales: `carlosjperez` / `bypass`
-3. **Health Check**: `curl https://dfo.solaria.agency/mcp/health`
-4. Color corporativo SOLARIA: **#f6921d** (naranja)
-5. Agentes se llaman: SOLARIA-PM, SOLARIA-ARCH, SOLARIA-DEV-01, etc.
-6. Para desarrollo local: `docker compose up -d` (usa `docker compose`, no `docker-compose`)
-7. El servicio principal es `office` en puerto 3030
+3. **Memorias**: Accesible desde Dashboard → Sidebar → Memorias
+4. **Health Check**: `curl https://dfo.solaria.agency/mcp/health`
+5. Color corporativo SOLARIA: **#f6921d** (naranja)
+6. Agentes se llaman: SOLARIA-PM, SOLARIA-ARCH, SOLARIA-DEV-01, etc.
+7. Para desarrollo local: `docker compose up -d` (usa `docker compose`, no `docker-compose`)
+8. El servicio principal es `office` en puerto 3030
+9. **SIEMPRE** guardar decisiones importantes en memoria para persistencia a largo plazo
 
 ### Verificar Conexión MCP
 
