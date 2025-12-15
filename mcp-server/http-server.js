@@ -412,8 +412,20 @@ app.post("/mcp", async (req, res) => {
 
 /**
  * SSE stream for server-to-client notifications (optional)
+ * Also handles health check GET requests without auth
  */
 app.get("/mcp", async (req, res) => {
+  // If not requesting SSE, return simple status (for health checks)
+  const acceptHeader = req.headers.accept || "";
+  if (!acceptHeader.includes("text/event-stream")) {
+    return res.json({
+      status: "ok",
+      server: "solaria-dashboard",
+      version: "3.1.0",
+      transport: "http",
+    });
+  }
+
   try {
     await authenticateRequest(req);
 
