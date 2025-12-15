@@ -227,7 +227,8 @@ app.post("/mcp", async (req, res) => {
 
     // Allow these methods without authentication (for health check/discovery)
     const publicMethods = ["initialize", "ping", "tools/list"];
-    const isPublicMethod = publicMethods.includes(method);
+    const isNotification = method?.startsWith("notifications/");
+    const isPublicMethod = publicMethods.includes(method) || isNotification;
 
     let auth = null;
     let apiClient = null;
@@ -384,6 +385,13 @@ app.post("/mcp", async (req, res) => {
       case "ping":
         result = {};
         break;
+
+      // Handle notifications (client -> server, no response expected)
+      case "notifications/initialized":
+      case "notifications/cancelled":
+      case "notifications/progress":
+        // Per MCP spec, notifications get 202 Accepted with no body
+        return res.status(202).send();
 
       default:
         return res.status(400).json({
