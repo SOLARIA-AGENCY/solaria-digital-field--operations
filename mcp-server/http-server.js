@@ -48,17 +48,9 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "10mb" }));
 
-// Request logging with details
+// Request logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  if (req.method === 'POST' && req.path === '/mcp') {
-    console.log(`  Headers: ${JSON.stringify({
-      accept: req.headers.accept,
-      'content-type': req.headers['content-type'],
-      authorization: req.headers.authorization ? 'Bearer ***' : 'none'
-    })}`);
-    console.log(`  Body method: ${req.body?.method || 'no body yet'}`);
-  }
   next();
 });
 
