@@ -215,9 +215,22 @@ app.post("/mcp/session", async (req, res) => {
  */
 app.post("/mcp", async (req, res) => {
   try {
-    const auth = await authenticateRequest(req);
-    const { apiClient } = auth;
-    const { apiCall } = apiClient;
+    const { jsonrpc, id, method, params } = req.body;
+
+    // Allow these methods without authentication (for health check/discovery)
+    const publicMethods = ["initialize", "ping", "tools/list"];
+    const isPublicMethod = publicMethods.includes(method);
+
+    let auth = null;
+    let apiClient = null;
+    let apiCall = null;
+
+    // Only authenticate for protected methods
+    if (!isPublicMethod) {
+      auth = await authenticateRequest(req);
+      apiClient = auth.apiClient;
+      apiCall = apiClient.apiCall;
+    }
 
     // Get session or project context
     let sessionId = req.headers["mcp-session-id"];
@@ -243,8 +256,6 @@ app.post("/mcp", async (req, res) => {
     if (session) {
       session.last_activity = new Date();
     }
-
-    const { jsonrpc, id, method, params } = req.body;
 
     if (jsonrpc !== "2.0") {
       return res.status(400).json({
