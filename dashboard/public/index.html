@@ -284,6 +284,37 @@
             width: 0;
         }
 
+        /* External Links in Sidebar */
+        .nav-separator {
+            height: 1px;
+            background: var(--border-color);
+            margin: 12px 14px;
+            opacity: 0.5;
+        }
+
+        .nav-item.nav-external {
+            position: relative;
+        }
+
+        .nav-item .external-icon {
+            font-size: 10px;
+            opacity: 0.4;
+            margin-left: auto;
+            transition: opacity var(--transition-fast);
+        }
+
+        .nav-item.nav-external:hover .external-icon {
+            opacity: 0.8;
+        }
+
+        .sidebar.collapsed .nav-separator {
+            margin: 12px 8px;
+        }
+
+        .sidebar.collapsed .external-icon {
+            display: none;
+        }
+
         /* Sidebar Footer - Collapse Button */
         .sidebar-footer {
             height: var(--footer-height);
@@ -3438,6 +3469,14 @@
                     <i class="fas fa-brain"></i>
                     <span>Memorias</span>
                 </a>
+
+                <!-- External Tools -->
+                <div class="nav-separator"></div>
+                <a href="https://vibe.solaria.agency" target="_blank" class="nav-item nav-external" title="Abrir VibeSDK en nueva pestaña">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                    <span>VibeSDK</span>
+                    <i class="fas fa-external-link-alt external-icon"></i>
+                </a>
             </nav>
 
             <!-- Sidebar Footer -->
@@ -4530,6 +4569,12 @@
             },
 
             handleNavClick(e, item) {
+                // Skip internal routing for external links
+                if (item.classList.contains('nav-external')) {
+                    // Let browser handle target="_blank" naturally
+                    return;
+                }
+
                 e.preventDefault();
                 const page = item.dataset.page;
 
