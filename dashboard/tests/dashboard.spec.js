@@ -758,3 +758,251 @@ test.describe('Dashboard Overview Stats', () => {
     expect(parseInt(count)).toBeGreaterThanOrEqual(0);
   });
 });
+
+// ============================================
+// NOTIFICATION SYSTEM TESTS
+// ============================================
+
+test.describe('Notification System', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#quickAccessBtn').click();
+    await page.waitForSelector('#dashboardScreen:not(.hidden)', { timeout: 15000 });
+  });
+
+  test('should display notification bell icon in header', async ({ page }) => {
+    const notificationBtn = page.locator('#notificationsBtn');
+    await expect(notificationBtn).toBeVisible();
+
+    // Check bell icon exists
+    const bellIcon = notificationBtn.locator('i.fa-bell');
+    await expect(bellIcon).toBeVisible();
+  });
+
+  test('should display notification badge element', async ({ page }) => {
+    const badge = page.locator('#notificationBadge');
+    await expect(badge).toBeAttached();
+  });
+
+  test('should open notification panel on bell click', async ({ page }) => {
+    const notificationBtn = page.locator('#notificationsBtn');
+    const panel = page.locator('#notificationsPanel');
+
+    // Panel should be hidden initially
+    await expect(panel).not.toHaveClass(/show/);
+
+    // Click bell
+    await notificationBtn.click();
+
+    // Panel should be visible
+    await expect(panel).toHaveClass(/show/);
+  });
+
+  test('should close notification panel on second click', async ({ page }) => {
+    const notificationBtn = page.locator('#notificationsBtn');
+    const panel = page.locator('#notificationsPanel');
+
+    // Open panel
+    await notificationBtn.click();
+    await expect(panel).toHaveClass(/show/);
+
+    // Close panel
+    await notificationBtn.click();
+    await expect(panel).not.toHaveClass(/show/);
+  });
+
+  test('should close notification panel on outside click', async ({ page }) => {
+    const notificationBtn = page.locator('#notificationsBtn');
+    const panel = page.locator('#notificationsPanel');
+
+    // Open panel
+    await notificationBtn.click();
+    await expect(panel).toHaveClass(/show/);
+
+    // Click outside (on main content area)
+    await page.locator('#contentArea').click({ force: true });
+
+    // Panel should close
+    await expect(panel).not.toHaveClass(/show/);
+  });
+
+  test('should display notifications header with clear button', async ({ page }) => {
+    // Open panel
+    await page.locator('#notificationsBtn').click();
+
+    // Check header
+    const header = page.locator('.notifications-header h3');
+    await expect(header).toContainText('Notificaciones');
+
+    // Check clear button
+    const clearBtn = page.locator('#clearNotifications');
+    await expect(clearBtn).toBeVisible();
+    await expect(clearBtn).toContainText('Limpiar');
+  });
+
+  test('should display empty state when no notifications', async ({ page }) => {
+    // Clear localStorage first
+    await page.evaluate(() => localStorage.removeItem('dfo_notifications'));
+    await page.reload();
+    await page.waitForSelector('#dashboardScreen:not(.hidden)', { timeout: 15000 });
+
+    // Open panel
+    await page.locator('#notificationsBtn').click();
+
+    // Check empty state
+    const emptyState = page.locator('.notifications-empty');
+    await expect(emptyState).toBeVisible();
+    await expect(emptyState).toContainText('No hay notificaciones');
+  });
+
+  test('should persist notifications in localStorage', async ({ page }) => {
+    // Add a test notification via JavaScript
+    await page.evaluate(() => {
+      const notifications = [{
+        id: Date.now(),
+        type: 'task',
+        title: 'Test Notification',
+        message: 'This is a test',
+        read: false,
+        timestamp: new Date().toISOString()
+      }];
+      localStorage.setItem('dfo_notifications', JSON.stringify(notifications));
+    });
+
+    // Reload page
+    await page.reload();
+    await page.waitForSelector('#dashboardScreen:not(.hidden)', { timeout: 15000 });
+
+    // Open panel
+    await page.locator('#notificationsBtn').click();
+
+    // Check notification is displayed
+    const notificationItem = page.locator('.notification-item');
+    await expect(notificationItem).toBeVisible();
+    await expect(notificationItem).toContainText('Test Notification');
+  });
+
+  test('should show badge with unread count', async ({ page }) => {
+    // Add unread notifications via JavaScript
+    await page.evaluate(() => {
+      const notifications = [
+        { id: 1, type: 'task', title: 'Notif 1', message: 'Test', read: false, timestamp: new Date().toISOString() },
+        { id: 2, type: 'task', title: 'Notif 2', message: 'Test', read: false, timestamp: new Date().toISOString() },
+        { id: 3, type: 'task', title: 'Notif 3', message: 'Test', read: true, timestamp: new Date().toISOString() }
+      ];
+      localStorage.setItem('dfo_notifications', JSON.stringify(notifications));
+    });
+
+    // Reload page
+    await page.reload();
+    await page.waitForSelector('#dashboardScreen:not(.hidden)', { timeout: 15000 });
+
+    // Check badge shows 2 (only unread)
+    const badge = page.locator('#notificationBadge');
+    await expect(badge).toHaveClass(/has-notifications/);
+    await expect(badge).toContainText('2');
+  });
+
+  test('should mark all as read when panel opens', async ({ page }) => {
+    // Add unread notifications
+    await page.evaluate(() => {
+      const notifications = [
+        { id: 1, type: 'task', title: 'Notif 1', message: 'Test', read: false, timestamp: new Date().toISOString() }
+      ];
+      localStorage.setItem('dfo_notifications', JSON.stringify(notifications));
+    });
+
+    await page.reload();
+    await page.waitForSelector('#dashboardScreen:not(.hidden)', { timeout: 15000 });
+
+    // Badge should show count before opening
+    const badge = page.locator('#notificationBadge');
+    await expect(badge).toHaveClass(/has-notifications/);
+
+    // Open panel
+    await page.locator('#notificationsBtn').click();
+    await page.waitForTimeout(500);
+
+    // Badge should be hidden after opening (all read)
+    await expect(badge).not.toHaveClass(/has-notifications/);
+  });
+
+  test('should clear all notifications on button click', async ({ page }) => {
+    // Add notifications
+    await page.evaluate(() => {
+      const notifications = [
+        { id: 1, type: 'task', title: 'Notif 1', message: 'Test', read: false, timestamp: new Date().toISOString() }
+      ];
+      localStorage.setItem('dfo_notifications', JSON.stringify(notifications));
+    });
+
+    await page.reload();
+    await page.waitForSelector('#dashboardScreen:not(.hidden)', { timeout: 15000 });
+
+    // Open panel
+    await page.locator('#notificationsBtn').click();
+
+    // Click clear all
+    await page.locator('#clearNotifications').click();
+
+    // Should show empty state
+    const emptyState = page.locator('.notifications-empty');
+    await expect(emptyState).toBeVisible();
+
+    // LocalStorage should be empty
+    const notifications = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem('dfo_notifications') || '[]')
+    );
+    expect(notifications.length).toBe(0);
+  });
+
+  test('should display correct notification icons by type', async ({ page }) => {
+    // Add notifications of different types
+    await page.evaluate(() => {
+      const notifications = [
+        { id: 1, type: 'task', title: 'Task Notif', message: 'Test', read: false, timestamp: new Date().toISOString() },
+        { id: 2, type: 'project', title: 'Project Notif', message: 'Test', read: false, timestamp: new Date().toISOString() }
+      ];
+      localStorage.setItem('dfo_notifications', JSON.stringify(notifications));
+    });
+
+    await page.reload();
+    await page.waitForSelector('#dashboardScreen:not(.hidden)', { timeout: 15000 });
+
+    // Open panel
+    await page.locator('#notificationsBtn').click();
+
+    // Check task icon
+    const taskIcon = page.locator('.notification-icon.task i.fa-tasks');
+    await expect(taskIcon).toBeVisible();
+
+    // Check project icon
+    const projectIcon = page.locator('.notification-icon.project i.fa-folder');
+    await expect(projectIcon).toBeVisible();
+  });
+});
+
+test.describe('Socket.IO Notifications', () => {
+  test('should load socket.io client library', async ({ page }) => {
+    await page.goto('/');
+
+    // Check socket.io is loaded
+    const hasSocketIO = await page.evaluate(() => typeof io !== 'undefined');
+    expect(hasSocketIO).toBe(true);
+  });
+
+  test('should connect to socket.io server after login', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#quickAccessBtn').click();
+    await page.waitForSelector('#dashboardScreen:not(.hidden)', { timeout: 15000 });
+
+    // Wait for socket connection
+    await page.waitForTimeout(2000);
+
+    // Check App.socket exists
+    const socketConnected = await page.evaluate(() =>
+      window.App && window.App.socket && window.App.socket.connected
+    );
+    expect(socketConnected).toBe(true);
+  });
+});
