@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS projects (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
+    code VARCHAR(10) NOT NULL DEFAULT 'PRJ',
     client VARCHAR(200),
     description TEXT,
     status ENUM('planning', 'development', 'testing', 'deployment', 'completed', 'on_hold', 'cancelled') DEFAULT 'planning',
@@ -39,6 +40,7 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_status (status),
     INDEX idx_priority (priority),
+    INDEX idx_code (code),
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -70,6 +72,7 @@ CREATE TABLE IF NOT EXISTS agent_states (
 -- Tasks table
 CREATE TABLE IF NOT EXISTS tasks (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    task_number INT DEFAULT 0,
     title VARCHAR(300) NOT NULL,
     description TEXT,
     project_id INT,
@@ -89,6 +92,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     INDEX idx_project (project_id),
     INDEX idx_agent (agent_id),
     INDEX idx_status (status),
+    INDEX idx_task_number (project_id, task_number),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (agent_id) REFERENCES ai_agents(id) ON DELETE SET NULL,
     FOREIGN KEY (assigned_agent_id) REFERENCES ai_agents(id) ON DELETE SET NULL,
@@ -194,7 +198,8 @@ INSERT INTO ai_agents (name, role, status, capabilities, last_activity) VALUES
 ('NEMESIS-DSN', 'designer', 'active', '{"ui_design": true, "ux_design": true, "prototyping": true}', NOW()),
 ('NEMESIS-OPS', 'devops', 'active', '{"ci_cd": true, "infrastructure": true, "monitoring": true}', NOW()),
 ('NEMESIS-DOC', 'technical_writer', 'active', '{"documentation": true, "api_docs": true, "user_guides": true}', NOW()),
-('NEMESIS-SEC', 'security_auditor', 'active', '{"code_review": true, "vulnerability_scan": true, "compliance": true}', NOW());
+('NEMESIS-SEC', 'security_auditor', 'active', '{"code_review": true, "vulnerability_scan": true, "compliance": true}', NOW()),
+('Claude Code', 'developer', 'active', '{"ai_assistant": true, "code_generation": true, "refactoring": true, "debugging": true}', NOW());
 
 -- Insert Agent States
 INSERT INTO agent_states (agent_id, status, current_task, last_heartbeat) VALUES
@@ -210,11 +215,11 @@ INSERT INTO agent_states (agent_id, status, current_task, last_heartbeat) VALUES
 (10, 'active', 'Security audit in progress', NOW());
 
 -- Insert demo projects
-INSERT INTO projects (name, client, description, status, priority, budget, actual_cost, completion_percentage, start_date, deadline, created_by) VALUES
-('SOLARIA Digital Field Operations', 'SOLARIA AGENCY', 'Digital Construction Field Office - Oficina de construccion autocontenida y desmantelable', 'development', 'high', 250000.00, 45000.00, 45, '2025-12-01', '2026-03-31', 1),
-('Akademate.com', 'Akademate SaaS', 'Plataforma SaaS multitenant para academias y centros de formacion', 'planning', 'critical', 250000.00, 0.00, 0, NULL, '2025-06-30', 1),
-('INMOBILIARIA VIRGEN DEL ROCIO', 'Virgen del Rocio', 'Sistema de gestion inmobiliaria', 'planning', 'high', 75000.00, 0.00, 0, NULL, NULL, 1),
-('ADEPAC CANARIAS', 'ADEPAC', 'Proyecto ADEPAC Canarias', 'planning', 'high', 50000.00, 0.00, 0, NULL, NULL, 1);
+INSERT INTO projects (name, code, client, description, status, priority, budget, actual_cost, completion_percentage, start_date, deadline, created_by) VALUES
+('SOLARIA Digital Field Operations', 'DFO', 'SOLARIA AGENCY', 'Digital Construction Field Office - Oficina de construccion autocontenida y desmantelable', 'development', 'high', 250000.00, 45000.00, 45, '2025-12-01', '2026-03-31', 1),
+('Akademate.com', 'AKD', 'Akademate SaaS', 'Plataforma SaaS multitenant para academias y centros de formacion', 'planning', 'critical', 250000.00, 0.00, 0, NULL, '2025-06-30', 1),
+('INMOBILIARIA VIRGEN DEL ROCIO', 'VDR', 'Virgen del Rocio', 'Sistema de gestion inmobiliaria', 'planning', 'high', 75000.00, 0.00, 0, NULL, NULL, 1),
+('ADEPAC CANARIAS', 'ADP', 'ADEPAC', 'Proyecto ADEPAC Canarias', 'planning', 'high', 50000.00, 0.00, 0, NULL, NULL, 1);
 
 -- Insert demo tasks
 INSERT INTO tasks (title, description, project_id, agent_id, assigned_agent_id, status, priority, estimated_hours, actual_hours, progress) VALUES

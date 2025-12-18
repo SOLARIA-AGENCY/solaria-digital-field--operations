@@ -1429,11 +1429,13 @@ class SolariaDashboardServer {
     async getTasks(req, res) {
         try {
             const { project_id, agent_id, status } = req.query;
-            
+
             let query = `
-                SELECT 
+                SELECT
                     t.*,
                     p.name as project_name,
+                    p.code as project_code,
+                    CONCAT(COALESCE(p.code, 'TSK'), '-', LPAD(COALESCE(t.task_number, t.id), 3, '0')) as task_code,
                     aa.name as agent_name,
                     u.username as assigned_by_name
                 FROM tasks t
@@ -1442,26 +1444,26 @@ class SolariaDashboardServer {
                 LEFT JOIN users u ON t.assigned_by = u.id
                 WHERE 1=1
             `;
-            
+
             const params = [];
-            
+
             if (project_id) {
                 query += ' AND t.project_id = ?';
                 params.push(project_id);
             }
-            
+
             if (agent_id) {
                 query += ' AND t.assigned_agent_id = ?';
                 params.push(agent_id);
             }
-            
+
             if (status) {
                 query += ' AND t.status = ?';
                 params.push(status);
             }
-            
+
             query += ' ORDER BY t.created_at DESC';
-            
+
             const [tasks] = await this.db.execute(query, params);
             res.json(tasks);
 
@@ -1481,6 +1483,8 @@ class SolariaDashboardServer {
             const [tasks] = await this.db.execute(`
                 SELECT
                     t.id,
+                    t.task_number,
+                    CONCAT(COALESCE(p.code, 'TSK'), '-', LPAD(COALESCE(t.task_number, t.id), 3, '0')) as task_code,
                     t.title,
                     t.status,
                     t.priority,
@@ -1489,6 +1493,7 @@ class SolariaDashboardServer {
                     t.updated_at,
                     p.id as project_id,
                     p.name as project_name,
+                    p.code as project_code,
                     aa.id as agent_id,
                     aa.name as agent_name,
                     aa.role as agent_role
@@ -1521,6 +1526,8 @@ class SolariaDashboardServer {
             const [tasks] = await this.db.execute(`
                 SELECT
                     t.id,
+                    t.task_number,
+                    CONCAT(COALESCE(p.code, 'TSK'), '-', LPAD(COALESCE(t.task_number, t.id), 3, '0')) as task_code,
                     t.title,
                     t.status,
                     t.priority,
@@ -1529,6 +1536,7 @@ class SolariaDashboardServer {
                     t.updated_at,
                     p.id as project_id,
                     p.name as project_name,
+                    p.code as project_code,
                     aa.id as agent_id,
                     aa.name as agent_name,
                     aa.role as agent_role
@@ -1546,11 +1554,13 @@ class SolariaDashboardServer {
             for (const task of tasks) {
                 const projectId = task.project_id || 0;
                 const projectName = task.project_name || 'Sin Proyecto';
+                const projectCode = task.project_code || 'TSK';
 
                 if (!projectsMap.has(projectId)) {
                     projectsMap.set(projectId, {
                         project_id: projectId,
                         project_name: projectName,
+                        project_code: projectCode,
                         tasks: [],
                         total: 0,
                         pending: 0,
@@ -1562,6 +1572,7 @@ class SolariaDashboardServer {
                 const project = projectsMap.get(projectId);
                 project.tasks.push({
                     id: task.id,
+                    task_code: task.task_code,
                     title: task.title,
                     status: task.status,
                     priority: task.priority,
@@ -1632,26 +1643,62 @@ class SolariaDashboardServer {
                 deadline
             } = req.body;
 
+            // Auto-assign "Claude Code" agent if not specified
+            let agentId = assigned_agent_id;
+            if (!agentId) {
+                const [agents] = await this.db.execute(
+                    "SELECT id FROM ai_agents WHERE name = 'Claude Code' AND status = 'active' LIMIT 1"
+                );
+                if (agents.length > 0) {
+                    agentId = agents[0].id;
+                }
+            }
+
+            // Get next task_number for this project
+            let taskNumber = 1;
+            if (project_id) {
+                const [maxTask] = await this.db.execute(
+                    'SELECT COALESCE(MAX(task_number), 0) + 1 as next_number FROM tasks WHERE project_id = ?',
+                    [project_id]
+                );
+                taskNumber = maxTask[0].next_number;
+            }
+
             // Convert undefined to null for MySQL compatibility
             const [result] = await this.db.execute(`
                 INSERT INTO tasks (
-                    title, description, project_id, assigned_agent_id,
+                    title, description, project_id, assigned_agent_id, task_number,
                     priority, estimated_hours, deadline, assigned_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
                 title,
                 description,
                 project_id ?? null,
-                assigned_agent_id ?? null,
+                agentId ?? null,
+                taskNumber,
                 priority,
                 estimated_hours ?? null,
                 deadline ?? null,
                 req.user.userId
             ]);
 
+            // Get project code for response
+            let taskCode = `#${taskNumber}`;
+            if (project_id) {
+                const [projects] = await this.db.execute(
+                    'SELECT code FROM projects WHERE id = ?',
+                    [project_id]
+                );
+                if (projects.length > 0 && projects[0].code) {
+                    taskCode = `${projects[0].code}-${String(taskNumber).padStart(3, '0')}`;
+                }
+            }
+
             // Emit task_created notification
             this.io.to('notifications').emit('task_created', {
                 id: result.insertId,
+                task_code: taskCode,
+                task_number: taskNumber,
                 title,
                 project_id,
                 priority
@@ -1659,10 +1706,13 @@ class SolariaDashboardServer {
 
             res.status(201).json({
                 id: result.insertId,
+                task_code: taskCode,
+                task_number: taskNumber,
                 message: 'Task created successfully'
             });
 
         } catch (error) {
+            console.error('Error creating task:', error);
             res.status(500).json({ error: 'Failed to create task' });
         }
     }
