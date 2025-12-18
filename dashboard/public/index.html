@@ -4195,6 +4195,11 @@
                 return this.request(`/tasks/recent-completed?limit=${limit}`);
             },
 
+            // Recent tasks by project (for New Tasks widget)
+            async getRecentTasksByProject(limit = 30, days = 7) {
+                return this.request(`/tasks/recent-by-project?limit=${limit}&days=${days}`);
+            },
+
             // C-Suite
             async getCEODashboard() {
                 return this.request('/csuite/ceo');
@@ -5270,12 +5275,35 @@
                                 `).join('') || '<div class="feed-empty"><i class="fas fa-folder-open"></i><p>No hay proyectos</p></div>'}
                             </div>
                         </div>
+
+                        <!-- New Tasks by Project Widget -->
+                        <div class="completed-tasks-widget">
+                            <div class="widget-header">
+                                <div class="widget-header-left">
+                                    <div class="widget-icon warning">
+                                        <i class="fas fa-plus-circle"></i>
+                                    </div>
+                                    <div>
+                                        <div class="widget-title">Nuevas Tareas por Proyecto</div>
+                                        <div class="widget-subtitle">Ultimos 7 dias</div>
+                                    </div>
+                                </div>
+                                <div class="widget-badge" id="newTasksCount">0</div>
+                            </div>
+                            <div class="completed-tasks-feed" id="newTasksByProjectFeed">
+                                <div class="feed-loading">
+                                    <i class="fas fa-spinner"></i>
+                                    <p>Cargando tareas...</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 `;
 
                 // Load dashboard stats and completed tasks
                 this.loadDashboardStats();
                 this.loadCompletedTasksFeed();
+                this.loadNewTasksByProject();
             },
 
             async loadDashboardStats() {
@@ -5345,6 +5373,72 @@
                             </div>
                         </div>
                         <span class="task-time">${timeStr}</span>
+                    </div>
+                `;
+            },
+
+            // New Tasks by Project Widget
+            async loadNewTasksByProject() {
+                const feedContainer = document.getElementById('newTasksByProjectFeed');
+                const countBadge = document.getElementById('newTasksCount');
+
+                if (!feedContainer) return;
+
+                try {
+                    const data = await Api.getRecentTasksByProject(30, 7);
+
+                    if (data && data.projects && data.projects.length > 0) {
+                        countBadge.textContent = data.total_tasks;
+                        feedContainer.innerHTML = data.projects.map(project => this.renderProjectTasksGroup(project)).join('');
+                    } else {
+                        countBadge.textContent = '0';
+                        feedContainer.innerHTML = `
+                            <div class="feed-empty">
+                                <i class="fas fa-inbox"></i>
+                                <p>No hay tareas nuevas en los ultimos 7 dias</p>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Failed to load new tasks by project:', error);
+                    feedContainer.innerHTML = `
+                        <div class="feed-empty">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Error cargando tareas</p>
+                        </div>
+                    `;
+                }
+            },
+
+            renderProjectTasksGroup(project) {
+                const statusColors = {
+                    pending: 'warning',
+                    in_progress: 'info',
+                    completed: 'success'
+                };
+                return `
+                    <div class="project-tasks-group" style="margin-bottom: 12px; padding: 12px; background: var(--bg-tertiary); border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-folder" style="color: var(--solaria-orange);"></i>
+                                <span style="font-weight: 600; color: var(--text-primary);">${this.escapeHtml(project.project_name)}</span>
+                            </div>
+                            <div style="display: flex; gap: 6px;">
+                                <span class="task-priority-badge low" style="font-size: 10px;">${project.completed} completadas</span>
+                                <span class="task-priority-badge medium" style="font-size: 10px;">${project.in_progress} en progreso</span>
+                                <span class="task-priority-badge high" style="font-size: 10px;">${project.pending} pendientes</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            ${project.tasks.slice(0, 3).map(task => `
+                                <div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg-secondary); border-radius: 6px;">
+                                    <span class="status-dot ${statusColors[task.status] || 'warning'}" style="width: 6px; height: 6px;"></span>
+                                    <span style="flex: 1; font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(task.title)}</span>
+                                    <span style="font-size: 10px; color: var(--text-muted);">${this.formatRelativeTime(task.created_at)}</span>
+                                </div>
+                            `).join('')}
+                            ${project.tasks.length > 3 ? `<span style="font-size: 11px; color: var(--text-muted); text-align: center; padding-top: 4px;">+${project.tasks.length - 3} mas</span>` : ''}
+                        </div>
                     </div>
                 `;
             },

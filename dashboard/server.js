@@ -182,6 +182,7 @@ class SolariaDashboardServer {
         // Gestión de tareas
         this.app.get('/api/tasks', this.getTasks.bind(this));
         this.app.get('/api/tasks/recent-completed', this.getRecentCompletedTasks.bind(this));
+        this.app.get('/api/tasks/recent-by-project', this.getRecentTasksByProject.bind(this));
         this.app.get('/api/tasks/:id', this.getTask.bind(this));
         this.app.post('/api/tasks', this.createTask.bind(this));
         this.app.put('/api/tasks/:id', this.updateTask.bind(this));
@@ -1504,6 +1505,90 @@ class SolariaDashboardServer {
         } catch (error) {
             console.error('Error fetching recent completed tasks:', error);
             res.status(500).json({ error: 'Failed to fetch recent completed tasks' });
+        }
+    }
+
+    /**
+     * Get recent tasks grouped by project
+     * Used for the "New Tasks per Project" widget on dashboard
+     */
+    async getRecentTasksByProject(req, res) {
+        try {
+            const limit = parseInt(req.query.limit) || 30;
+            const days = parseInt(req.query.days) || 7; // Tasks from last N days
+
+            // Get recent tasks with project info
+            const [tasks] = await this.db.execute(`
+                SELECT
+                    t.id,
+                    t.title,
+                    t.status,
+                    t.priority,
+                    t.progress,
+                    t.created_at,
+                    t.updated_at,
+                    p.id as project_id,
+                    p.name as project_name,
+                    aa.id as agent_id,
+                    aa.name as agent_name,
+                    aa.role as agent_role
+                FROM tasks t
+                LEFT JOIN projects p ON t.project_id = p.id
+                LEFT JOIN ai_agents aa ON t.assigned_agent_id = aa.id
+                WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                ORDER BY t.created_at DESC
+                LIMIT ?
+            `, [days, limit]);
+
+            // Group tasks by project
+            const projectsMap = new Map();
+
+            for (const task of tasks) {
+                const projectId = task.project_id || 0;
+                const projectName = task.project_name || 'Sin Proyecto';
+
+                if (!projectsMap.has(projectId)) {
+                    projectsMap.set(projectId, {
+                        project_id: projectId,
+                        project_name: projectName,
+                        tasks: [],
+                        total: 0,
+                        pending: 0,
+                        in_progress: 0,
+                        completed: 0
+                    });
+                }
+
+                const project = projectsMap.get(projectId);
+                project.tasks.push({
+                    id: task.id,
+                    title: task.title,
+                    status: task.status,
+                    priority: task.priority,
+                    progress: task.progress,
+                    created_at: task.created_at,
+                    agent_name: task.agent_name,
+                    agent_role: task.agent_role
+                });
+                project.total++;
+                if (task.status === 'pending') project.pending++;
+                else if (task.status === 'in_progress') project.in_progress++;
+                else if (task.status === 'completed') project.completed++;
+            }
+
+            // Convert to array and sort by total tasks descending
+            const result = Array.from(projectsMap.values())
+                .sort((a, b) => b.total - a.total);
+
+            res.json({
+                period_days: days,
+                total_tasks: tasks.length,
+                projects: result
+            });
+
+        } catch (error) {
+            console.error('Error fetching recent tasks by project:', error);
+            res.status(500).json({ error: 'Failed to fetch recent tasks by project' });
         }
     }
 
