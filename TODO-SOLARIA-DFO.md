@@ -30,11 +30,11 @@
 - **Impacto:** Consistencia visual mejorada
 
 ### DFO-034: Kanban real-time updates
-- [ ] Socket.IO: escuchar `task_created` y agregar card sin refresh
-- [ ] Socket.IO: escuchar `task_updated` y mover card sin refresh
-- [ ] Socket.IO: escuchar `task_deleted` y remover card sin refresh
-- **Status:** NOT STARTED
-- **Bug reportado:** Tareas nuevas no aparecen en Kanban sin refresh
+- [x] Socket.IO: escuchar `task_created` y agregar card sin refresh
+- [x] Socket.IO: escuchar `task_updated` y mover card sin refresh
+- [x] Socket.IO: escuchar `task_deleted` y remover card sin refresh
+- **Status:** COMPLETED (f08c74cd)
+- **Impacto:** Kanban se actualiza en tiempo real via Socket.IO
 
 ---
 
@@ -166,16 +166,19 @@
 - [x] DFO-028: VibeSDK external link
 - [x] DFO-029: Memorias page
 - [x] DFO-031: Auto-generate task codes
+- [x] DFO-032: Deep linking para cards de dashboard
+- [x] DFO-033: Task codes visibles en UI
+- [x] DFO-034: Kanban real-time updates
 
 ---
 
 ## Proximos Pasos
 
-1. **Implementar DFO-032** (deep linking) - mas impacto en UX
-2. **Implementar DFO-033** (task codes en UI) - consistencia
-3. **Implementar DFO-034** (Kanban real-time) - fix bug reportado
-4. Desplegar y verificar
-5. Subir tareas corregidas a la base de datos
+1. **Implementar DFO-035** (Task cards con info completa) - mejor UX
+2. **Implementar DFO-036** (Sistema de etiquetas) - organizacion
+3. **Implementar DFO-037** (Task list sorting) - usabilidad
+4. **Implementar DFO-038** (Budget editing) - gestion financiera
+5. Crear tests exhaustivos E2E
 
 ---
 
