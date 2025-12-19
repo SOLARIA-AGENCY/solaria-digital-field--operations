@@ -5326,10 +5326,52 @@
                     </div>
                 `;
 
-                // Load dashboard stats and completed tasks
+                // Load dashboard stats, completed tasks, and projects
                 this.loadDashboardStats();
                 this.loadCompletedTasksFeed();
                 this.loadNewTasksByProject();
+                this.loadRecentProjects();
+            },
+
+            async loadRecentProjects() {
+                const feedContainer = document.getElementById('recentProjectsFeed');
+                if (!feedContainer) return;
+
+                try {
+                    // Wait for PROJECTS_DATA to be loaded (already populated in init)
+                    if (PROJECTS_DATA.length === 0) {
+                        // Fetch projects from API if not loaded
+                        const response = await API.getProjects();
+                        if (response && response.projects) {
+                            PROJECTS_DATA = this.transformProjectsFromAPI(response.projects);
+                        }
+                    }
+
+                    if (PROJECTS_DATA.length > 0) {
+                        feedContainer.innerHTML = PROJECTS_DATA.slice(0, 5).map(p => `
+                            <div class="completed-task-item" onclick="App.showProjectDetail('${p.slug || p.id}')" style="cursor: pointer;">
+                                <div class="task-check-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">
+                                    <i class="fas fa-folder"></i>
+                                </div>
+                                <div class="task-content">
+                                    <div class="task-title-row">
+                                        <span class="task-title">${this.escapeHtml(p.name)}</span>
+                                        <span class="task-priority-badge ${p.phase === 'production' ? 'low' : p.phase === 'development' ? 'high' : 'medium'}">${p.phase || 'activo'}</span>
+                                    </div>
+                                    <div class="task-meta">
+                                        <span class="task-meta-item"><i class="fas fa-tasks"></i> ${p.stats?.tasks || 0} tareas</span>
+                                        <span class="task-meta-item"><i class="fas fa-percentage"></i> ${p.stats?.tasks > 0 ? Math.round((p.stats?.completed || 0) / p.stats.tasks * 100) : 0}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        feedContainer.innerHTML = '<div class="feed-empty"><i class="fas fa-folder-open"></i><p>No hay proyectos</p></div>';
+                    }
+                } catch (error) {
+                    console.error('Failed to load recent projects:', error);
+                    feedContainer.innerHTML = '<div class="feed-empty"><i class="fas fa-exclamation-triangle"></i><p>Error cargando proyectos</p></div>';
+                }
             },
 
             async loadDashboardStats() {
