@@ -214,6 +214,31 @@ INSERT INTO agent_states (agent_id, status, current_task, last_heartbeat) VALUES
 (9, 'active', 'Updating documentation', NOW()),
 (10, 'active', 'Security audit in progress', NOW());
 
+-- ============================================================================
+-- TASK ITEMS - Subtasks/Checklist items per task
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS task_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    task_id INT NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    description TEXT,
+    sort_order INT DEFAULT 0,
+    is_completed BOOLEAN DEFAULT FALSE,
+    completed_at TIMESTAMP NULL,
+    completed_by_agent_id INT,
+    estimated_minutes INT DEFAULT 0,
+    actual_minutes INT DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_task_items_task (task_id),
+    INDEX idx_task_items_completed (is_completed),
+    INDEX idx_task_items_sort (task_id, sort_order),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (completed_by_agent_id) REFERENCES ai_agents(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Insert demo projects
 INSERT INTO projects (name, code, client, description, status, priority, budget, actual_cost, completion_percentage, start_date, deadline, created_by) VALUES
 ('SOLARIA Digital Field Operations', 'DFO', 'SOLARIA AGENCY', 'Digital Construction Field Office - Oficina de construccion autocontenida y desmantelable', 'development', 'high', 250000.00, 45000.00, 45, '2025-12-01', '2026-03-31', 1),
