@@ -31,6 +31,22 @@ const JWT_SECRET = process.env.JWT_SECRET || "solaria_jwt_secret_2024";
 
 // Session storage (in production, use Redis)
 const sessions = new Map();
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// Clean up expired sessions every hour
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+  for (const [sessionId, session] of sessions.entries()) {
+    if (now - session.last_activity.getTime() > SESSION_TTL_MS) {
+      sessions.delete(sessionId);
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) {
+    console.log(`[SESSION] Cleaned ${cleaned} expired sessions`);
+  }
+}, 60 * 60 * 1000);
 
 // Create Express app
 const app = express();
@@ -40,8 +56,23 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
+// CORS configuration - restrict to known origins in production
+const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",")
+  : ["https://dfo.solaria.agency", "https://solaria.agency", "http://localhost:3030", "http://localhost:5173"];
+
 app.use(cors({
-  origin: true,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like curl, Postman, or server-to-server)
+    if (!origin) return callback(null, true);
+    // Allow configured origins
+    if (ALLOWED_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes("*")) {
+      return callback(null, true);
+    }
+    // Log blocked origin for debugging
+    console.log(`[CORS] Blocked request from origin: ${origin}`);
+    callback(new Error("Not allowed by CORS"));
+  },
   credentials: true,
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Project-Id", "Mcp-Session-Id"],

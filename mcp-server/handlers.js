@@ -906,27 +906,31 @@ export async function executeTool(name, args, apiCall, context = {}) {
       return apiCall(`/projects/${requestedProjectId}`);
 
     case "create_project":
-      // ISOLATION: Cannot create new projects when isolated
+      // Allow project creation from any context (including isolated sessions)
+      // Track provenance: which project/session initiated the creation
+      const projectPayload = {
+        name: args.name,
+        client: args.client || "External Client",
+        description: args.description || "",
+        budget: args.budget || 0,
+        deadline: args.deadline,
+        status: "planning",
+        priority: args.priority || "medium",
+      };
+      // If created from an isolated session, log provenance
       if (isIsolated) {
-        throw new Error("ACCESS DENIED: Cannot create new projects in isolated mode. Use the dashboard for project management.");
+        console.log(`[PROJECT] Creating new project "${args.name}" from isolated session (project #${context.project_id})`);
       }
       return apiCall("/projects", {
         method: "POST",
-        body: JSON.stringify({
-          name: args.name,
-          client: args.client || "External Client",
-          description: args.description || "",
-          budget: args.budget || 0,
-          deadline: args.deadline,
-          status: "planning",
-          priority: "medium",
-        }),
+        body: JSON.stringify(projectPayload),
       });
 
     case "update_project":
-      // ISOLATION: Can only update own project
+      // Allow cross-project updates with provenance logging
+      // This enables agents to update any project they know about
       if (isIsolated && args.project_id !== context.project_id) {
-        throw new Error(`ACCESS DENIED: Cannot update project #${args.project_id}. You are isolated to project #${context.project_id}`);
+        console.log(`[PROJECT] Updating project #${args.project_id} from isolated session (project #${context.project_id})`);
       }
       return apiCall(`/projects/${args.project_id}`, {
         method: "PUT",
