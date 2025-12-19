@@ -907,8 +907,17 @@ class SolariaDashboardServer {
                     start_date, deadline, created_by, office_origin, office_visible
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
-                name, projectCode, client, description, priority, budget,
-                start_date, deadline, req.user.userId, normalizedOrigin, officeVisible
+                name,
+                projectCode,
+                client || null,
+                description || null,
+                priority || 'medium',
+                budget ?? null,
+                start_date || null,
+                deadline || null,
+                req.user?.userId || null,
+                normalizedOrigin,
+                officeVisible
             ]);
 
             // Log de creación
