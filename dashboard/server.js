@@ -652,7 +652,23 @@ class SolariaDashboardServer {
 
     async getTasksPublic(req, res) {
         try {
-            const { project_id, status, limit = 100 } = req.query;
+            const { project_id, status, limit = 100, sort_by = 'updated_at', sort_order = 'desc' } = req.query;
+
+            // Whitelist of allowed sort columns for security
+            const allowedSortColumns = {
+                'created_at': 't.created_at',
+                'updated_at': 't.updated_at',
+                'title': 't.title',
+                'priority': 't.priority',
+                'status': 't.status',
+                'progress': 't.progress',
+                'task_number': 't.task_number',
+                'project_name': 'p.name'
+            };
+
+            const sortColumn = allowedSortColumns[sort_by] || 't.updated_at';
+            const sortDirection = sort_order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
             let query = `
                 SELECT t.id, t.title, t.description, t.status, t.priority, t.progress,
                        t.project_id, t.task_number, t.created_at, t.updated_at,
@@ -674,7 +690,7 @@ class SolariaDashboardServer {
                 query += ' AND t.status = ?';
                 params.push(status);
             }
-            query += ` ORDER BY t.updated_at DESC LIMIT ${parseInt(limit)}`;
+            query += ` ORDER BY ${sortColumn} ${sortDirection} LIMIT ${parseInt(limit)}`;
 
             const [tasks] = await this.db.execute(query, params);
             res.json({ tasks });
@@ -1480,7 +1496,25 @@ class SolariaDashboardServer {
 
     async getTasks(req, res) {
         try {
-            const { project_id, agent_id, status } = req.query;
+            const { project_id, agent_id, status, sort_by = 'created_at', sort_order = 'desc', limit = 200 } = req.query;
+
+            // Whitelist of allowed sort columns for security
+            const allowedSortColumns = {
+                'created_at': 't.created_at',
+                'updated_at': 't.updated_at',
+                'title': 't.title',
+                'priority': 't.priority',
+                'status': 't.status',
+                'progress': 't.progress',
+                'task_number': 't.task_number',
+                'project_name': 'p.name',
+                'agent_name': 'aa.name',
+                'completed_at': 't.completed_at'
+            };
+
+            const sortColumn = allowedSortColumns[sort_by] || 't.created_at';
+            const sortDirection = sort_order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+            const safeLimit = Math.min(Math.max(parseInt(limit) || 200, 1), 500);
 
             let query = `
                 SELECT
@@ -1516,7 +1550,7 @@ class SolariaDashboardServer {
                 params.push(status);
             }
 
-            query += ' ORDER BY t.created_at DESC';
+            query += ` ORDER BY ${sortColumn} ${sortDirection} LIMIT ${safeLimit}`;
 
             const [tasks] = await this.db.execute(query, params);
             res.json(tasks);
