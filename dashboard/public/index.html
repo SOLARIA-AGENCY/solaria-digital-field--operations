@@ -5308,7 +5308,7 @@
 
             async loadDashboardStats() {
                 try {
-                    const dashboard = await Api.getDashboard();
+                    const dashboard = await API.getDashboard();
                     if (dashboard) {
                         document.getElementById('statProjects').textContent = dashboard.projects?.active_projects || dashboard.projects?.total_projects || PROJECTS_DATA.length;
                         document.getElementById('statCompleted').textContent = dashboard.tasks?.completed_tasks || 0;
@@ -5327,7 +5327,7 @@
                 const countBadge = document.getElementById('completedTasksCount');
 
                 try {
-                    const tasks = await Api.getRecentCompletedTasks(15);
+                    const tasks = await API.getRecentCompletedTasks(15);
 
                     if (tasks && tasks.length > 0) {
                         countBadge.textContent = tasks.length;
@@ -5385,7 +5385,7 @@
                 if (!feedContainer) return;
 
                 try {
-                    const data = await Api.getRecentTasksByProject(30, 7);
+                    const data = await API.getRecentTasksByProject(30, 7);
 
                     if (data && data.projects && data.projects.length > 0) {
                         countBadge.textContent = data.total_tasks;
