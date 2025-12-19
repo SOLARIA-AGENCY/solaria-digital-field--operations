@@ -190,6 +190,14 @@ class SolariaDashboardServer {
         this.app.post('/api/tasks', this.createTask.bind(this));
         this.app.put('/api/tasks/:id', this.updateTask.bind(this));
 
+        // Task Items (Subtasks/Checklist)
+        this.app.get('/api/tasks/:id/items', this.getTaskItems.bind(this));
+        this.app.post('/api/tasks/:id/items', this.createTaskItems.bind(this));
+        this.app.put('/api/tasks/:id/items/:itemId', this.updateTaskItem.bind(this));
+        this.app.delete('/api/tasks/:id/items/:itemId', this.deleteTaskItem.bind(this));
+        this.app.put('/api/tasks/:id/items/:itemId/complete', this.toggleTaskItemComplete.bind(this));
+        this.app.put('/api/tasks/:id/items/reorder', this.reorderTaskItems.bind(this));
+
         // Gestión de negocios (Businesses)
         this.app.get('/api/businesses', this.getBusinesses.bind(this));
         this.app.get('/api/businesses/:id', this.getBusiness.bind(this));
@@ -1450,7 +1458,9 @@ class SolariaDashboardServer {
                     p.code as project_code,
                     CONCAT(COALESCE(p.code, 'TSK'), '-', LPAD(COALESCE(t.task_number, t.id), 3, '0')) as task_code,
                     aa.name as agent_name,
-                    u.username as assigned_by_name
+                    u.username as assigned_by_name,
+                    (SELECT COUNT(*) FROM task_items WHERE task_id = t.id) as items_total,
+                    (SELECT COUNT(*) FROM task_items WHERE task_id = t.id AND is_completed = 1) as items_completed
                 FROM tasks t
                 LEFT JOIN projects p ON t.project_id = p.id
                 LEFT JOIN ai_agents aa ON t.assigned_agent_id = aa.id
@@ -1619,11 +1629,13 @@ class SolariaDashboardServer {
     async getTask(req, res) {
         try {
             const { id } = req.params;
-            
+
             const [task] = await this.db.execute(`
-                SELECT 
+                SELECT
                     t.*,
                     p.name as project_name,
+                    p.code as project_code,
+                    CONCAT(COALESCE(p.code, 'TSK'), '-', LPAD(COALESCE(t.task_number, t.id), 3, '0')) as task_code,
                     aa.name as agent_name,
                     u.username as assigned_by_name
                 FROM tasks t
@@ -1637,9 +1649,24 @@ class SolariaDashboardServer {
                 return res.status(404).json({ error: 'Task not found' });
             }
 
-            res.json(task[0]);
+            // Fetch task items (subtasks/checklist)
+            const [items] = await this.db.execute(`
+                SELECT ti.*, a.name as completed_by_name
+                FROM task_items ti
+                LEFT JOIN ai_agents a ON ti.completed_by_agent_id = a.id
+                WHERE ti.task_id = ?
+                ORDER BY ti.sort_order ASC, ti.created_at ASC
+            `, [id]);
+
+            const result = task[0];
+            result.items = items;
+            result.items_total = items.length;
+            result.items_completed = items.filter(i => i.is_completed).length;
+
+            res.json(result);
 
         } catch (error) {
+            console.error('Error fetching task:', error);
             res.status(500).json({ error: 'Failed to fetch task' });
         }
     }
@@ -1800,6 +1827,284 @@ class SolariaDashboardServer {
         } catch (error) {
             console.error('Update task error:', error);
             res.status(500).json({ error: 'Failed to update task' });
+        }
+    }
+
+    // ============================================================================
+    // TASK ITEMS (Subtasks/Checklist) ENDPOINTS
+    // ============================================================================
+
+    /**
+     * Helper: Recalculate task progress based on completed items
+     * Also auto-completes task when all items are done
+     */
+    async recalculateTaskProgress(taskId) {
+        const [counts] = await this.db.execute(`
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed
+            FROM task_items
+            WHERE task_id = ?
+        `, [taskId]);
+
+        const total = counts[0].total || 0;
+        const completed = parseInt(counts[0].completed) || 0;
+        const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        // Update task progress
+        await this.db.execute('UPDATE tasks SET progress = ?, updated_at = NOW() WHERE id = ?', [progress, taskId]);
+
+        // Auto-complete task if 100%
+        if (progress === 100 && total > 0) {
+            await this.db.execute(
+                `UPDATE tasks SET status = 'completed', completed_at = NOW()
+                 WHERE id = ? AND status != 'completed'`,
+                [taskId]
+            );
+        }
+
+        // Emit WebSocket update
+        this.io.to('notifications').emit('task_updated', {
+            task_id: taskId,
+            progress,
+            items_completed: completed,
+            items_total: total
+        });
+
+        return { progress, completed, total };
+    }
+
+    /**
+     * GET /api/tasks/:id/items - Get all items for a task
+     */
+    async getTaskItems(req, res) {
+        try {
+            const taskId = parseInt(req.params.id);
+
+            const [items] = await this.db.execute(`
+                SELECT ti.*, a.name as completed_by_name
+                FROM task_items ti
+                LEFT JOIN ai_agents a ON ti.completed_by_agent_id = a.id
+                WHERE ti.task_id = ?
+                ORDER BY ti.sort_order ASC, ti.created_at ASC
+            `, [taskId]);
+
+            res.json({
+                items,
+                task_id: taskId,
+                total: items.length,
+                completed: items.filter(i => i.is_completed).length
+            });
+        } catch (error) {
+            console.error('Error fetching task items:', error);
+            res.status(500).json({ error: 'Failed to fetch task items' });
+        }
+    }
+
+    /**
+     * POST /api/tasks/:id/items - Create items (single or batch)
+     */
+    async createTaskItems(req, res) {
+        try {
+            const taskId = parseInt(req.params.id);
+            let { items } = req.body;
+
+            // Support single item or array
+            if (!Array.isArray(items)) {
+                items = [req.body];
+            }
+
+            // Get current max sort_order
+            const [maxOrder] = await this.db.execute(
+                'SELECT COALESCE(MAX(sort_order), -1) as max_order FROM task_items WHERE task_id = ?',
+                [taskId]
+            );
+            let currentOrder = maxOrder[0].max_order;
+
+            const createdItems = [];
+            for (const item of items) {
+                currentOrder++;
+                const [result] = await this.db.execute(`
+                    INSERT INTO task_items (task_id, title, description, sort_order, estimated_minutes)
+                    VALUES (?, ?, ?, ?, ?)
+                `, [taskId, item.title, item.description || null, currentOrder, item.estimated_minutes || 0]);
+
+                createdItems.push({
+                    id: result.insertId,
+                    task_id: taskId,
+                    title: item.title,
+                    sort_order: currentOrder
+                });
+            }
+
+            // Recalculate progress
+            const progress = await this.recalculateTaskProgress(taskId);
+
+            // Log activity
+            await this.logActivity({
+                action: `Created ${createdItems.length} checklist item(s) for task #${taskId}`,
+                category: 'task',
+                level: 'info'
+            });
+
+            res.status(201).json({
+                items: createdItems,
+                task_id: taskId,
+                ...progress
+            });
+        } catch (error) {
+            console.error('Error creating task items:', error);
+            res.status(500).json({ error: 'Failed to create task items' });
+        }
+    }
+
+    /**
+     * PUT /api/tasks/:id/items/:itemId - Update an item
+     */
+    async updateTaskItem(req, res) {
+        try {
+            const taskId = parseInt(req.params.id);
+            const itemId = parseInt(req.params.itemId);
+            const { title, description, is_completed, notes, actual_minutes, completed_by_agent_id } = req.body;
+
+            const updates = [];
+            const values = [];
+
+            if (title !== undefined) { updates.push('title = ?'); values.push(title); }
+            if (description !== undefined) { updates.push('description = ?'); values.push(description); }
+            if (notes !== undefined) { updates.push('notes = ?'); values.push(notes); }
+            if (actual_minutes !== undefined) { updates.push('actual_minutes = ?'); values.push(actual_minutes); }
+
+            if (is_completed !== undefined) {
+                updates.push('is_completed = ?');
+                values.push(is_completed);
+                if (is_completed) {
+                    updates.push('completed_at = NOW()');
+                    if (completed_by_agent_id) {
+                        updates.push('completed_by_agent_id = ?');
+                        values.push(completed_by_agent_id);
+                    }
+                } else {
+                    updates.push('completed_at = NULL');
+                    updates.push('completed_by_agent_id = NULL');
+                }
+            }
+
+            if (updates.length === 0) {
+                return res.status(400).json({ error: 'No fields to update' });
+            }
+
+            values.push(itemId, taskId);
+            await this.db.execute(
+                `UPDATE task_items SET ${updates.join(', ')} WHERE id = ? AND task_id = ?`,
+                values
+            );
+
+            // Recalculate progress
+            const progress = await this.recalculateTaskProgress(taskId);
+
+            // Get updated item
+            const [items] = await this.db.execute('SELECT * FROM task_items WHERE id = ?', [itemId]);
+
+            res.json({ item: items[0], ...progress });
+        } catch (error) {
+            console.error('Error updating task item:', error);
+            res.status(500).json({ error: 'Failed to update task item' });
+        }
+    }
+
+    /**
+     * PUT /api/tasks/:id/items/:itemId/complete - Quick toggle complete
+     */
+    async toggleTaskItemComplete(req, res) {
+        try {
+            const taskId = parseInt(req.params.id);
+            const itemId = parseInt(req.params.itemId);
+            const { notes, actual_minutes, agent_id } = req.body;
+
+            // Toggle completion
+            await this.db.execute(`
+                UPDATE task_items
+                SET is_completed = NOT is_completed,
+                    completed_at = CASE WHEN is_completed = 0 THEN NOW() ELSE NULL END,
+                    completed_by_agent_id = CASE WHEN is_completed = 0 THEN ? ELSE NULL END,
+                    notes = COALESCE(?, notes),
+                    actual_minutes = COALESCE(?, actual_minutes)
+                WHERE id = ? AND task_id = ?
+            `, [agent_id || null, notes || null, actual_minutes || null, itemId, taskId]);
+
+            // Recalculate progress
+            const progress = await this.recalculateTaskProgress(taskId);
+
+            // Get updated item
+            const [items] = await this.db.execute('SELECT * FROM task_items WHERE id = ?', [itemId]);
+
+            res.json({ item: items[0], ...progress });
+        } catch (error) {
+            console.error('Error toggling task item:', error);
+            res.status(500).json({ error: 'Failed to toggle task item' });
+        }
+    }
+
+    /**
+     * DELETE /api/tasks/:id/items/:itemId - Delete an item
+     */
+    async deleteTaskItem(req, res) {
+        try {
+            const taskId = parseInt(req.params.id);
+            const itemId = parseInt(req.params.itemId);
+
+            await this.db.execute('DELETE FROM task_items WHERE id = ? AND task_id = ?', [itemId, taskId]);
+
+            // Recalculate progress
+            const progress = await this.recalculateTaskProgress(taskId);
+
+            res.json({ deleted: true, item_id: itemId, ...progress });
+        } catch (error) {
+            console.error('Error deleting task item:', error);
+            res.status(500).json({ error: 'Failed to delete task item' });
+        }
+    }
+
+    /**
+     * PUT /api/tasks/:id/items/reorder - Batch reorder items
+     */
+    async reorderTaskItems(req, res) {
+        try {
+            const taskId = parseInt(req.params.id);
+            const { order } = req.body; // Array of { id, sort_order }
+
+            for (const item of order) {
+                await this.db.execute(
+                    'UPDATE task_items SET sort_order = ? WHERE id = ? AND task_id = ?',
+                    [item.sort_order, item.id, taskId]
+                );
+            }
+
+            res.json({ reordered: true, task_id: taskId });
+        } catch (error) {
+            console.error('Error reordering task items:', error);
+            res.status(500).json({ error: 'Failed to reorder task items' });
+        }
+    }
+
+    /**
+     * Helper: Log activity to database
+     */
+    async logActivity(data) {
+        try {
+            await this.db.execute(`
+                INSERT INTO activity_logs (action, category, level, project_id, agent_id)
+                VALUES (?, ?, ?, ?, ?)
+            `, [
+                data.action,
+                data.category || 'system',
+                data.level || 'info',
+                data.project_id || null,
+                data.agent_id || null
+            ]);
+        } catch (error) {
+            console.error('Error logging activity:', error);
         }
     }
 

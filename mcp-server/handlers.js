@@ -220,6 +220,86 @@ export const toolDefinitions = [
     },
   },
 
+  // Task Items (Subtasks/Checklist) Tools
+  {
+    name: "list_task_items",
+    description: "Get all checklist/subtask items for a task. Use this to see the detailed breakdown of work.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "Task ID to get items for" },
+        include_completed: { type: "boolean", description: "Include completed items (default: true)" },
+      },
+      required: ["task_id"],
+    },
+  },
+  {
+    name: "create_task_items",
+    description: "Create subtask/checklist items for a task. IMPORTANT: Use this when you start working on a task to break it down into granular steps. This enables progress tracking and context persistence.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "Task ID to add items to" },
+        items: {
+          type: "array",
+          description: "Array of items to create",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Item title (what needs to be done)" },
+              description: { type: "string", description: "Optional detailed description" },
+              estimated_minutes: { type: "number", description: "Estimated time in minutes" },
+            },
+            required: ["title"],
+          },
+        },
+      },
+      required: ["task_id", "items"],
+    },
+  },
+  {
+    name: "complete_task_item",
+    description: "Mark a checklist item as completed. This automatically updates the parent task's progress percentage.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "Task ID" },
+        item_id: { type: "number", description: "Item ID to mark as completed" },
+        notes: { type: "string", description: "Optional completion notes" },
+        actual_minutes: { type: "number", description: "Actual time spent in minutes" },
+      },
+      required: ["task_id", "item_id"],
+    },
+  },
+  {
+    name: "update_task_item",
+    description: "Update a checklist item's details (title, description, completion status)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "Task ID" },
+        item_id: { type: "number", description: "Item ID to update" },
+        title: { type: "string", description: "New title" },
+        description: { type: "string", description: "New description" },
+        is_completed: { type: "boolean", description: "Completion status" },
+        notes: { type: "string", description: "Notes" },
+      },
+      required: ["task_id", "item_id"],
+    },
+  },
+  {
+    name: "delete_task_item",
+    description: "Delete a checklist item from a task",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "Task ID" },
+        item_id: { type: "number", description: "Item ID to delete" },
+      },
+      required: ["task_id", "item_id"],
+    },
+  },
+
   // Agent Tools
   {
     name: "list_agents",
@@ -927,6 +1007,95 @@ export async function executeTool(name, args, apiCall, context = {}) {
           completion_notes: args.completion_notes,
         }),
       });
+
+    // Task Items (Subtasks/Checklist)
+    case "list_task_items": {
+      // ISOLATION: Validate task belongs to project
+      await validateTaskProject(args.task_id);
+      const result = await apiCall(`/tasks/${args.task_id}/items`);
+      // Filter completed if requested
+      if (args.include_completed === false) {
+        result.items = result.items.filter((i) => !i.is_completed);
+      }
+      return {
+        task_id: args.task_id,
+        items: result.items,
+        summary: {
+          total: result.items.length,
+          completed: result.items.filter((i) => i.is_completed).length,
+          pending: result.items.filter((i) => !i.is_completed).length,
+        },
+      };
+    }
+
+    case "create_task_items": {
+      // ISOLATION: Validate task belongs to project
+      await validateTaskProject(args.task_id);
+      const result = await apiCall(`/tasks/${args.task_id}/items`, {
+        method: "POST",
+        body: JSON.stringify({ items: args.items }),
+      });
+      return {
+        success: true,
+        task_id: args.task_id,
+        items_created: result.items.length,
+        items: result.items,
+        task_progress: result.progress,
+        message: `Created ${result.items.length} checklist items. Task progress: ${result.progress}%`,
+      };
+    }
+
+    case "complete_task_item": {
+      // ISOLATION: Validate task belongs to project
+      await validateTaskProject(args.task_id);
+      const result = await apiCall(
+        `/tasks/${args.task_id}/items/${args.item_id}/complete`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            notes: args.notes,
+            actual_minutes: args.actual_minutes,
+          }),
+        }
+      );
+      return {
+        success: true,
+        item: result.item,
+        task_progress: result.progress,
+        items_completed: result.completed,
+        items_total: result.total,
+        message: `Item completed. Task progress: ${result.completed}/${result.total} (${result.progress}%)`,
+      };
+    }
+
+    case "update_task_item": {
+      // ISOLATION: Validate task belongs to project
+      await validateTaskProject(args.task_id);
+      const { task_id, item_id, ...updateData } = args;
+      const result = await apiCall(`/tasks/${task_id}/items/${item_id}`, {
+        method: "PUT",
+        body: JSON.stringify(updateData),
+      });
+      return {
+        success: true,
+        item: result.item,
+        task_progress: result.progress,
+      };
+    }
+
+    case "delete_task_item": {
+      // ISOLATION: Validate task belongs to project
+      await validateTaskProject(args.task_id);
+      const result = await apiCall(`/tasks/${args.task_id}/items/${args.item_id}`, {
+        method: "DELETE",
+      });
+      return {
+        success: true,
+        deleted_item_id: args.item_id,
+        task_progress: result.progress,
+        message: `Item deleted. Task progress recalculated: ${result.progress}%`,
+      };
+    }
 
     // Agents
     case "list_agents": {

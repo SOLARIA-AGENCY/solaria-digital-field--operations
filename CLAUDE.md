@@ -399,7 +399,7 @@ docker compose down -v
 
 ---
 
-## 🚀 Protocolo de Inicialización de Agentes IA
+## 🚀 Protocolo de Inicialización de Agentes IA (v2.0)
 
 > **OBLIGATORIO:** Todo agente IA que se conecte a SOLARIA DFO DEBE seguir este protocolo al inicio de cada sesión.
 
@@ -412,14 +412,88 @@ set_project_context({ project_name: "Nombre del Proyecto" })
 ### Paso 2: Cargar Memoria Relevante
 ```javascript
 // Buscar decisiones y contexto previo del proyecto
-memory_search({ query: "project context decisions", tags: ["decision", "context", "architecture"] })
+memory_search({ query: "decisiones arquitectura contexto", tags: ["decision", "context"] })
 ```
 
-### Paso 3: Verificar Estado del Proyecto
+### Paso 3: Verificar Tareas en Progreso y sus Subtareas
 ```javascript
-// Ver tareas pendientes y estado general
-get_dashboard_overview()
-list_tasks({ status: "pending" })
+// Ver tareas asignadas
+const tasks = list_tasks({ status: "in_progress" })
+
+// Para cada tarea, cargar sus subtareas pendientes
+for (task of tasks) {
+    list_task_items({ task_id: task.id, include_completed: false })
+}
+```
+
+### Paso 4: Al Tomar Nueva Tarea - CREAR DESGLOSE OBLIGATORIO
+
+Cuando cambies una tarea a "in_progress", **DEBES** crear el desglose de subtareas:
+
+```javascript
+// Actualizar estado
+update_task({ task_id: 123, status: "in_progress" })
+
+// OBLIGATORIO: Crear desglose granular
+create_task_items({
+    task_id: 123,
+    items: [
+        { title: "Analizar requisitos y código existente", estimated_minutes: 30 },
+        { title: "Diseñar solución técnica", estimated_minutes: 45 },
+        { title: "Implementar cambios en [archivo]", estimated_minutes: 60 },
+        { title: "Agregar/actualizar tests", estimated_minutes: 30 },
+        { title: "Documentar cambios", estimated_minutes: 15 },
+        { title: "Verificar y limpiar código", estimated_minutes: 15 }
+    ]
+})
+```
+
+### Paso 5: Actualizar Progreso Granular
+
+Al completar cada subtarea:
+```javascript
+complete_task_item({
+    task_id: 123,
+    item_id: 456,
+    notes: "Implementado correctamente, tests pasan",
+    actual_minutes: 45
+})
+// El progreso del task padre se actualiza AUTOMÁTICAMENTE
+```
+
+### Paso 6: Al Finalizar Sesión
+
+Guardar contexto importante en memoria:
+```javascript
+memory_create({
+    content: "Resumen de la sesión: completé X items de tarea Y. Pendiente: Z.",
+    tags: ["session", "context"],
+    importance: 0.6
+})
+```
+
+### Buenas Prácticas para Subtareas
+
+**Granularidad Ideal:**
+- Cada subtarea = 15-60 minutos de trabajo
+- Verbos de acción claros: "Implementar", "Agregar", "Refactorizar"
+- Específicas: mencionar archivos/componentes cuando sea posible
+
+**Ejemplo de Desglose Típico:**
+```javascript
+create_task_items({
+    task_id: 789,
+    items: [
+        { title: "Revisar schema actual de DB", estimated_minutes: 15 },
+        { title: "Crear migración para nueva tabla", estimated_minutes: 20 },
+        { title: "Implementar modelo en server.js", estimated_minutes: 30 },
+        { title: "Agregar endpoints CRUD", estimated_minutes: 45 },
+        { title: "Crear herramientas MCP", estimated_minutes: 30 },
+        { title: "Actualizar UI del dashboard", estimated_minutes: 40 },
+        { title: "Probar flujo completo", estimated_minutes: 20 },
+        { title: "Actualizar documentación", estimated_minutes: 15 }
+    ]
+})
 ```
 
 ### Buenas Prácticas de Memoria
@@ -446,7 +520,7 @@ list_tasks({ status: "pending" })
 - `learning` - Aprendizajes
 - `context` - Contexto general
 
-### Ejemplo de Sesión Típica
+### Ejemplo de Sesión Típica (v2.0)
 
 ```
 1. Agente se conecta a SOLARIA DFO
@@ -456,16 +530,25 @@ list_tasks({ status: "pending" })
 3. memory_search({ query: "arquitectura decisiones recientes" })
    ↓  → Recupera: "Usamos Payload CMS, React 19, TailwindCSS 4"
 4. list_tasks({ status: "in_progress" })
-   ↓  → Ve: "Implementar formulario de contacto"
-5. [Trabaja en la tarea...]
+   ↓  → Ve: "Tarea #123 - Implementar formulario de contacto"
+5. list_task_items({ task_id: 123 })
+   ↓  → Ve: "3/7 items completados"
+6. [Continúa trabajando en el siguiente item pendiente...]
    ↓
-6. memory_create({
+7. complete_task_item({
+     task_id: 123,
+     item_id: 456,
+     notes: "Validación Zod implementada",
+     actual_minutes: 35
+   })
+   ↓  → Progreso actualizado: 4/7 (57%)
+8. [Al finalizar todos los items, el task se completa automáticamente]
+   ↓
+9. memory_create({
      content: "Formulario implementado con validación Zod y honeypot anti-spam",
      tags: ["solution", "implementation"],
      importance: 0.7
    })
-   ↓
-7. complete_task({ task_id: 123, notes: "Formulario completo con validación" })
 ```
 
 ---
