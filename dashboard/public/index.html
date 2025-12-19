@@ -4185,19 +4185,19 @@
                 });
             },
 
-            // Dashboard
+            // Dashboard (uses public endpoint - no auth required)
             async getDashboard() {
-                return this.request('/dashboard/overview');
+                return this.request('/public/dashboard/overview');
             },
 
-            // Recent completed tasks (global)
+            // Recent completed tasks (global - public endpoint)
             async getRecentCompletedTasks(limit = 20) {
-                return this.request(`/tasks/recent-completed?limit=${limit}`);
+                return this.request(`/public/tasks/recent-completed?limit=${limit}`);
             },
 
-            // Recent tasks by project (for New Tasks widget)
+            // Recent tasks by project (for New Tasks widget - public endpoint)
             async getRecentTasksByProject(limit = 30, days = 7) {
-                return this.request(`/tasks/recent-by-project?limit=${limit}&days=${days}`);
+                return this.request(`/public/tasks/recent-by-project?limit=${limit}&days=${days}`);
             },
 
             // C-Suite
