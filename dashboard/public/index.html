@@ -2781,6 +2781,70 @@
             gap: 4px;
         }
 
+        /* Task Tags (DFO-036) */
+        .task-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .task-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .task-tag:hover {
+            filter: brightness(1.1);
+            transform: scale(1.02);
+        }
+
+        .task-tag i {
+            font-size: 8px;
+        }
+
+        .tag-picker {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-top: 8px;
+        }
+
+        .tag-picker-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: 1px solid transparent;
+        }
+
+        .tag-picker-item:hover {
+            border-color: currentColor;
+        }
+
+        .tag-picker-item.selected {
+            border-color: currentColor;
+            box-shadow: 0 0 0 2px currentColor;
+        }
+
+        .tag-picker-item i {
+            font-size: 10px;
+        }
+
         /* iPad compact task cards */
         @media (max-width: 1024px) {
             .task-card {
@@ -4221,6 +4285,28 @@
             // Health check
             async health() {
                 return this.request('/health');
+            },
+
+            // Task Tags (DFO-036)
+            async getTags() {
+                return this.request('/tags');
+            },
+
+            async getTaskTags(taskId) {
+                return this.request(`/tasks/${taskId}/tags`);
+            },
+
+            async addTaskTag(taskId, tagName) {
+                return this.request(`/tasks/${taskId}/tags`, {
+                    method: 'POST',
+                    body: JSON.stringify({ tag_name: tagName })
+                });
+            },
+
+            async removeTaskTag(taskId, tagId) {
+                return this.request(`/tasks/${taskId}/tags/${tagId}`, {
+                    method: 'DELETE'
+                });
             }
         };
 
@@ -4228,6 +4314,7 @@
         let PROJECTS_DATA = [];
         let BUSINESSES_DATA = [];
         let TASKS_DATA = [];
+        let TASK_TAGS_DATA = []; // DFO-036: Available task tags
         let API_CONNECTED = false;
 
         /*
@@ -4823,11 +4910,12 @@
 
             async loadDataFromAPI() {
                 try {
-                    // Try to load from API
-                    const [projectsRes, businessesRes, tasksRes] = await Promise.all([
+                    // Try to load from API (including task tags)
+                    const [projectsRes, businessesRes, tasksRes, tagsRes] = await Promise.all([
                         API.getProjects().catch(e => null),
                         API.getBusinesses().catch(e => null),
-                        API.getTasks().catch(e => null)
+                        API.getTasks().catch(e => null),
+                        API.getTags().catch(e => null)
                     ]);
 
                     if (projectsRes && projectsRes.projects) {
@@ -4850,6 +4938,12 @@
                     if (tasksRes && tasksRes.tasks) {
                         TASKS_DATA = tasksRes.tasks;
                         console.log(`Loaded ${TASKS_DATA.length} tasks from API`);
+                    }
+
+                    // Load task tags (DFO-036)
+                    if (tagsRes && tagsRes.tags) {
+                        TASK_TAGS_DATA = tagsRes.tags;
+                        console.log(`Loaded ${TASK_TAGS_DATA.length} task tags from API`);
                     }
 
                     this.updateConnectionStatus(API_CONNECTED);
@@ -9068,6 +9162,30 @@
                                     </div>
                                 ` : ''}
 
+                                <!-- Tags Section (DFO-036) -->
+                                <div class="form-section" style="margin-bottom: 20px;">
+                                    <h4 class="form-section-title" style="margin-bottom: 8px;">
+                                        <i class="fas fa-tags" style="color: var(--solaria-orange);"></i> Etiquetas
+                                    </h4>
+                                    <div id="taskTagsContainer" data-task-id="${task.id}" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                        <span style="color: var(--text-muted); font-size: 12px;">Cargando...</span>
+                                    </div>
+                                    <div class="tag-picker" id="tagPicker" style="display: none;">
+                                    </div>
+                                    <button type="button" onclick="App.toggleTagPicker(${task.id})" style="
+                                        margin-top: 8px;
+                                        padding: 4px 10px;
+                                        font-size: 11px;
+                                        border: 1px dashed var(--border-color);
+                                        background: transparent;
+                                        color: var(--text-muted);
+                                        border-radius: 6px;
+                                        cursor: pointer;
+                                    ">
+                                        <i class="fas fa-plus"></i> Agregar
+                                    </button>
+                                </div>
+
                                 <!-- Checklist Section -->
                                 ${task.items && task.items.length > 0 ? `
                                     <div class="form-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 12px;">
@@ -9216,12 +9334,103 @@
                 `;
 
                 document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+                // Load task tags (DFO-036)
+                this.loadTaskTags(task.id);
             },
 
             closeTaskModal(e) {
                 if (e && e.target !== e.currentTarget) return;
                 const overlay = document.getElementById('taskModalOverlay');
                 if (overlay) overlay.remove();
+            },
+
+            // ============================================
+            // TASK TAGS (DFO-036)
+            // ============================================
+
+            async loadTaskTags(taskId) {
+                const container = document.getElementById('taskTagsContainer');
+                if (!container) return;
+
+                try {
+                    const response = await API.getTaskTags(taskId);
+                    const tags = response.tags || [];
+
+                    if (tags.length === 0) {
+                        container.innerHTML = '<span style="color: var(--text-muted); font-size: 12px; font-style: italic;">Sin etiquetas</span>';
+                    } else {
+                        container.innerHTML = tags.map(tag => this.renderTaskTag(tag, taskId)).join('');
+                    }
+                } catch (error) {
+                    console.error('Error loading task tags:', error);
+                    container.innerHTML = '<span style="color: var(--text-muted); font-size: 12px;">Error cargando etiquetas</span>';
+                }
+            },
+
+            renderTaskTag(tag, taskId) {
+                return `
+                    <span class="task-tag" style="background: ${tag.color}20; color: ${tag.color};" title="${tag.description || tag.name}">
+                        <i class="fas fa-${tag.icon || 'tag'}"></i>
+                        ${tag.name}
+                        <i class="fas fa-times" style="margin-left: 4px; cursor: pointer; opacity: 0.7;"
+                           onclick="event.stopPropagation(); App.removeTagFromTask(${taskId}, ${tag.id})"></i>
+                    </span>
+                `;
+            },
+
+            async toggleTagPicker(taskId) {
+                const picker = document.getElementById('tagPicker');
+                if (!picker) return;
+
+                if (picker.style.display === 'none' || !picker.style.display) {
+                    // Load available tags
+                    picker.innerHTML = TASK_TAGS_DATA.map(tag => {
+                        return `
+                            <span class="tag-picker-item"
+                                  style="background: ${tag.color}15; color: ${tag.color};"
+                                  onclick="App.addTagToTask(${taskId}, '${tag.name}')">
+                                <i class="fas fa-${tag.icon || 'tag'}"></i>
+                                ${tag.name}
+                            </span>
+                        `;
+                    }).join('');
+                    picker.style.display = 'flex';
+                } else {
+                    picker.style.display = 'none';
+                }
+            },
+
+            async addTagToTask(taskId, tagName) {
+                try {
+                    await API.addTaskTag(taskId, tagName);
+                    await this.loadTaskTags(taskId);
+
+                    // Hide picker after adding
+                    const picker = document.getElementById('tagPicker');
+                    if (picker) picker.style.display = 'none';
+
+                    // Show notification
+                    this.showNotification(`Etiqueta "${tagName}" agregada`, 'success');
+                } catch (error) {
+                    if (error.message?.includes('409')) {
+                        this.showNotification('Esta etiqueta ya esta asignada', 'warning');
+                    } else {
+                        console.error('Error adding tag:', error);
+                        this.showNotification('Error al agregar etiqueta', 'error');
+                    }
+                }
+            },
+
+            async removeTagFromTask(taskId, tagId) {
+                try {
+                    await API.removeTaskTag(taskId, tagId);
+                    await this.loadTaskTags(taskId);
+                    this.showNotification('Etiqueta eliminada', 'info');
+                } catch (error) {
+                    console.error('Error removing tag:', error);
+                    this.showNotification('Error al eliminar etiqueta', 'error');
+                }
             },
 
             goBackToProjectDetail() {
