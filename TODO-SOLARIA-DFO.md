@@ -15,8 +15,10 @@
   - [x] Nuevas Tareas por Proyecto
   - [x] Proyectos Recientes
 - [x] CSS hover states para indicar que son clickeables
-- **Status:** COMPLETED (e071c56f)
-- **Impacto:** UX - cards ahora navegables
+- [x] Stat cards clickeables (proyectos, tareas, agentes)
+- [x] Metodo navigateTo() para navegacion programatica
+- **Status:** COMPLETED (d596bd62)
+- **Impacto:** UX - cards y widgets ahora navegables
 
 ### DFO-033: Task codes visibles en UI
 - [x] Mostrar codigo (DFO-XXX) en lugar de ID en todas las vistas
