@@ -5219,7 +5219,12 @@
 
                 if (task) {
                     // Navigate to tareas page and open modal
-                    App.setActiveNav('tareas');
+                    // Update nav active state
+                    const navItem = document.querySelector('[data-page="tareas"]');
+                    if (navItem) {
+                        App.elements.navItems.forEach(nav => nav.classList.remove('active'));
+                        navItem.classList.add('active');
+                    }
                     App.state.currentPage = 'tareas';
                     await App.renderTareasPage();
                     // Open the task modal
@@ -5237,7 +5242,12 @@
                 console.log('Navigating to project:', projectId);
 
                 // Navigate to projects page
-                App.setActiveNav('proyectos');
+                // Update nav active state
+                const navItem = document.querySelector('[data-page="proyectos"]');
+                if (navItem) {
+                    App.elements.navItems.forEach(nav => nav.classList.remove('active'));
+                    navItem.classList.add('active');
+                }
                 App.state.currentPage = 'proyectos';
                 await App.renderProjectsPage();
 
