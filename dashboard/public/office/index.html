@@ -1,170 +1,2089 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SOLARIA OFFICE - Gestión de proyectos y clientes</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/png" href="/solaria-logo.png">
-  <link rel="stylesheet" href="./office.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SOLARIA OFFICE">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="format-detection" content="telephone=no">
+
+    <title>SOLARIA OFFICE - Project & Account Management</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/solaria-logo.png">
+    <link rel="icon" type="image/png" href="/solaria-logo.png">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Socket.IO Client -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <style>
+        /* ============================================
+           CSS Variables - SOLARIA OFFICE (Light Mode)
+           ============================================ */
+        :root {
+            /* Colors - LIGHT MODE ONLY */
+            --solaria-orange: #f6921d;
+            --solaria-orange-dark: #d97b0d;
+            --solaria-orange-light: #ffa94d;
+
+            --bg-primary: #f5f5f7;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e8e8eb;
+            --bg-card: #ffffff;
+            --bg-hover: #e0e0e3;
+
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+
+            --border-color: #e0e0e0;
+            --border-light: #d0d0d0;
+
+            /* Semantic Colors */
+            --color-positive: #16a34a;
+            --color-positive-bg: rgba(22, 163, 74, 0.12);
+            --color-negative: #dc2626;
+            --color-negative-bg: rgba(220, 38, 38, 0.12);
+            --color-neutral: #6b7280;
+            --color-info: #2563eb;
+            --color-info-bg: rgba(37, 99, 235, 0.12);
+            --color-warning: #d97706;
+            --color-warning-bg: rgba(217, 119, 6, 0.12);
+
+            /* Metrics Card Design System */
+            --metric-card-bg: var(--bg-card);
+            --metric-card-border: var(--border-color);
+            --metric-card-radius: 12px;
+            --metric-card-padding: 16px;
+
+            /* Sidebar */
+            --sidebar-width: 260px;
+            --sidebar-collapsed-width: 72px;
+
+            /* Header/Footer */
+            --header-height: 56px;
+            --footer-height: 40px;
+
+            /* Transitions */
+            --transition-fast: 150ms ease;
+            --transition-normal: 250ms ease;
+
+            /* Safe areas for iOS */
+            --safe-area-top: env(safe-area-inset-top, 0px);
+            --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        /* ============================================
+           Reset & Base
+           ============================================ */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ============================================
+           App Container
+           ============================================ */
+        .app-container {
+            display: flex;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+            padding-top: var(--safe-area-top);
+            padding-bottom: var(--safe-area-bottom);
+        }
+
+        /* ============================================
+           Login Screen
+           ============================================ */
+        .login-screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f5f5f7 0%, #e8e8eb 100%);
+            z-index: 9999;
+        }
+
+        .login-screen.hidden {
+            display: none;
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 48px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--border-color);
+        }
+
+        .login-logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .login-logo img {
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+        }
+
+        .login-logo h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 16px;
+            color: var(--text-primary);
+        }
+
+        .login-logo .badge {
+            display: inline-block;
+            background: var(--solaria-orange);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-top: 8px;
+            letter-spacing: 1px;
+        }
+
+        .login-logo p {
+            color: var(--text-secondary);
+            margin-top: 8px;
+            font-size: 13px;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-group input {
+            height: 44px;
+            padding: 0 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 14px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            transition: border-color var(--transition-fast), background var(--transition-fast);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--solaria-orange);
+            background: var(--bg-card);
+        }
+
+        .login-btn {
+            height: 48px;
+            background: var(--solaria-orange);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+            margin-top: 8px;
+        }
+
+        .login-btn:hover {
+            background: var(--solaria-orange-dark);
+        }
+
+        .login-error {
+            color: var(--color-negative);
+            font-size: 12px;
+            text-align: center;
+            display: none;
+        }
+
+        .login-error.visible {
+            display: block;
+        }
+
+        /* ============================================
+           Sidebar
+           ============================================ */
+        .sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            height: 100%;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: width var(--transition-normal), min-width var(--transition-normal);
+            overflow: hidden;
+            position: relative;
+            z-index: 100;
+        }
+
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
+            min-width: var(--sidebar-collapsed-width);
+        }
+
+        .sidebar-header {
+            height: var(--header-height);
+            min-height: var(--header-height);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 12px;
+        }
+
+        .sidebar-logo {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .sidebar-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .sidebar-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            transition: opacity var(--transition-fast);
+        }
+
+        .sidebar-title .office-badge {
+            display: inline-block;
+            background: var(--solaria-orange);
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .sidebar.collapsed .sidebar-title {
+            opacity: 0;
+            width: 0;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            cursor: pointer;
+            transition: background var(--transition-fast), color var(--transition-fast);
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--solaria-orange);
+            color: white;
+        }
+
+        .nav-item i {
+            width: 20px;
+            min-width: 20px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .nav-item span {
+            opacity: 1;
+            transition: opacity var(--transition-fast);
+        }
+
+        .sidebar.collapsed .nav-item span {
+            opacity: 0;
+            width: 0;
+        }
+
+        .nav-separator {
+            height: 1px;
+            background: var(--border-color);
+            margin: 12px 14px;
+            opacity: 0.5;
+        }
+
+        /* Sidebar Footer */
+        .sidebar-footer {
+            height: var(--footer-height);
+            min-height: var(--footer-height);
+            padding: 0 12px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .collapse-btn {
+            width: 100%;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: none;
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .collapse-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .sidebar.collapsed .collapse-btn i {
+            transform: rotate(180deg);
+        }
+
+        /* ============================================
+           Main Content Area
+           ============================================ */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        /* Header */
+        .header {
+            height: var(--header-height);
+            min-height: var(--header-height);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 0 14px;
+            height: 40px;
+            max-width: 360px;
+            flex: 1;
+            transition: border-color var(--transition-fast);
+        }
+
+        .search-box:focus-within {
+            border-color: var(--solaria-orange);
+        }
+
+        .search-box i {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .search-box input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-btn {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 10px;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+            position: relative;
+        }
+
+        .header-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            background: var(--color-negative);
+            border-radius: 9px;
+            border: 2px solid var(--bg-secondary);
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .notification-badge.has-notifications {
+            display: flex;
+        }
+
+        /* User Menu */
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px 6px 6px;
+            background: var(--bg-tertiary);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .user-menu:hover {
+            background: var(--bg-hover);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: var(--solaria-orange);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            overflow: hidden;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .user-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        /* ============================================
+           Content Area
+           ============================================ */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: var(--bg-primary);
+        }
+
+        /* Section Header */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .section-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        /* ============================================
+           Cards & Panels
+           ============================================ */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* ============================================
+           Metrics Grid
+           ============================================ */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            position: relative;
+        }
+
+        .stat-card .stat-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .stat-card .stat-icon.green { background: var(--color-positive-bg); color: var(--color-positive); }
+        .stat-card .stat-icon.red { background: var(--color-negative-bg); color: var(--color-negative); }
+        .stat-card .stat-icon.blue { background: var(--color-info-bg); color: var(--color-info); }
+        .stat-card .stat-icon.orange { background: var(--color-warning-bg); color: var(--color-warning); }
+        .stat-card .stat-icon.purple { background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
+
+        .stat-card .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.1;
+        }
+
+        .stat-card .stat-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        /* ============================================
+           Data Tables
+           ============================================ */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .data-table th {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            background: var(--bg-tertiary);
+        }
+
+        .data-table th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+
+        .data-table th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+
+        .data-table td {
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .data-table tr:hover td {
+            background: var(--bg-hover);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-badge.progress {
+            background: var(--color-info-bg);
+            color: var(--color-info);
+        }
+
+        .status-badge.risk {
+            background: var(--color-warning-bg);
+            color: var(--color-warning);
+        }
+
+        .status-badge.paused {
+            background: rgba(107, 114, 128, 0.12);
+            color: var(--color-neutral);
+        }
+
+        .status-badge.completed {
+            background: var(--color-positive-bg);
+            color: var(--color-positive);
+        }
+
+        /* ============================================
+           Progress Bars
+           ============================================ */
+        .progress-bar {
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-bar .progress-fill.green { background: var(--color-positive); }
+        .progress-bar .progress-fill.blue { background: var(--color-info); }
+        .progress-bar .progress-fill.orange { background: var(--solaria-orange); }
+        .progress-bar .progress-fill.red { background: var(--color-negative); }
+
+        /* ============================================
+           Buttons
+           ============================================ */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 16px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .btn-primary {
+            background: var(--solaria-orange);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--solaria-orange-dark);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+        }
+
+        /* ============================================
+           View Toggle
+           ============================================ */
+        .view-toggle {
+            display: flex;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 3px;
+        }
+
+        .view-toggle-btn {
+            padding: 6px 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .view-toggle-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .view-toggle-btn.active {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        /* ============================================
+           Kanban Board
+           ============================================ */
+        .kanban-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            height: 100%;
+            min-height: 400px;
+        }
+
+        .kanban-column {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .kanban-column-header {
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .kanban-column-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .column-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .kanban-column.backlog .column-dot { background: #64748b; }
+        .kanban-column.todo .column-dot { background: #f59e0b; }
+        .kanban-column.doing .column-dot { background: #3b82f6; }
+        .kanban-column.done .column-dot { background: #22c55e; }
+
+        .kanban-column-count {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .kanban-column-body {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .task-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+        }
+
+        .task-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .task-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .task-card-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        .task-card-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-bottom: 8px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .task-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .priority-badge {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* ============================================
+           Budget Segments
+           ============================================ */
+        .budget-segments {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .budget-segment {
+            padding: 12px;
+            border-radius: 8px;
+            background: var(--bg-tertiary);
+        }
+
+        .budget-segment-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .budget-segment-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .budget-segment-bar {
+            height: 4px;
+            background: var(--bg-hover);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .budget-segment-bar .fill {
+            height: 100%;
+            border-radius: 2px;
+        }
+
+        /* ============================================
+           Charts Container
+           ============================================ */
+        .chart-container {
+            position: relative;
+            height: 200px;
+        }
+
+        /* ============================================
+           Footer
+           ============================================ */
+        .footer {
+            height: var(--footer-height);
+            min-height: var(--footer-height);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .footer-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-positive);
+        }
+
+        .status-dot.disconnected {
+            background: var(--color-negative);
+        }
+
+        /* ============================================
+           Responsive
+           ============================================ */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -100%;
+                z-index: 1000;
+                transition: left var(--transition-normal);
+            }
+
+            .sidebar.open {
+                left: 0;
+            }
+
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .kanban-board {
+                grid-template-columns: 1fr;
+            }
+
+            .header-left .search-box {
+                display: none;
+            }
+        }
+
+        /* ============================================
+           Loading States
+           ============================================ */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+            border-radius: 6px;
+        }
+
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* ============================================
+           Animations
+           ============================================ */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* ============================================
+           Hidden Utility
+           ============================================ */
+        .hidden {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
-  <div id="officeApp" class="app-shell">
-    <section id="officeLogin" class="full-screen center" aria-label="Office login">
-      <div class="login-card">
-        <div class="logo-stack">
-          <img src="/solaria-logo.png" alt="Solaria" class="logo">
-          <div class="wordmark">
-            <span class="office">OFFICE</span>
-            <span class="agency">SOLARIA.AGENCY</span>
-          </div>
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-card">
+            <div class="login-logo">
+                <img src="/solaria-logo.png" alt="SOLARIA">
+                <h1>SOLARIA</h1>
+                <span class="badge">OFFICE</span>
+                <p>Project & Account Management</p>
+            </div>
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label for="username">Usuario</label>
+                    <input type="text" id="username" placeholder="carlosjperez" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Contrasena</label>
+                    <input type="password" id="password" placeholder="bypass" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="login-btn">Iniciar Sesion</button>
+                <p class="login-error" id="loginError">Credenciales invalidas</p>
+            </form>
         </div>
-        <p class="subtitle">Panel de gestión para Project Managers y Account Managers</p>
-        <form id="officeLoginForm" class="form">
-          <label class="field">
-            <span>Usuario o email</span>
-            <input id="officeUser" type="text" placeholder="carlosjperez" required autocomplete="username">
-          </label>
-          <label class="field">
-            <span>Contraseña</span>
-            <input id="officePassword" type="password" placeholder="bypass" required autocomplete="current-password">
-          </label>
-          <button class="primary" type="submit">Entrar</button>
-          <p id="officeLoginError" class="error" role="alert"></p>
-        </form>
-      </div>
-    </section>
+    </div>
 
-    <section id="officeLayout" class="hidden app-grid" aria-label="Office dashboard">
-      <aside class="sidebar">
-        <div class="sidebar-header">
-          <div class="badge">OFFICE</div>
-          <div class="sidebar-title">Gestión de cuentas</div>
-        </div>
-        <nav class="nav" aria-label="Navegación principal">
-          <button class="nav-item active" data-section="overview">Dashboard</button>
-          <button class="nav-item" data-section="projects">Proyectos</button>
-          <button class="nav-item" data-section="clients">Clientes</button>
-          <button class="nav-item" data-section="agents">Agentes</button>
-          <button class="nav-item" data-section="design">Design Hub</button>
-          <button class="nav-item" data-section="design-system">Design System</button>
-          <button class="nav-item" data-section="reports">Reportes</button>
-        </nav>
-      </aside>
+    <!-- App Container -->
+    <div class="app-container hidden" id="appContainer">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <img src="/solaria-logo.png" alt="SOLARIA">
+                </div>
+                <span class="sidebar-title">SOLARIA <span class="office-badge">OFFICE</span></span>
+            </div>
 
-      <div class="main">
-        <header class="topbar">
-          <div class="breadcrumbs" id="officeBreadcrumbs">Dashboard</div>
-          <div class="topbar-actions">
-            <div class="project-switcher">
-              <label for="projectSelector">Proyecto</label>
-              <select id="projectSelector"></select>
-            </div>
-            <div class="kpi-mini" id="miniKPIs"></div>
-            <div class="user-chip" id="userChip">
-              <div class="avatar" id="userAvatar">PM</div>
-              <div>
-                <div class="user-name" id="userName">-</div>
-                <div class="user-role" id="userRole">Project Manager</div>
-              </div>
-            </div>
-            <button class="ghost" id="officeLogout">Salir</button>
-          </div>
-        </header>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#proyectos" class="nav-item" data-page="proyectos">
+                    <i class="fas fa-folder-open"></i>
+                    <span>Proyectos</span>
+                </a>
+                <a href="#clientes" class="nav-item" data-page="clientes">
+                    <i class="fas fa-users"></i>
+                    <span>Clientes</span>
+                </a>
+                <a href="#agentes" class="nav-item" data-page="agentes">
+                    <i class="fas fa-robot"></i>
+                    <span>Agentes</span>
+                </a>
 
-        <main class="content">
-          <section id="section-overview" class="section">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Visión ejecutiva</p>
-                <h1>Estado general de la cartera</h1>
-              </div>
-              <div class="pill">Light mode</div>
-            </div>
-            <div class="grid kpi-grid" id="overviewKPI"></div>
-            <div class="panel" id="budgetSnapshot"></div>
-          </section>
+                <div class="nav-separator"></div>
 
-          <section id="section-projects" class="section hidden">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Proyectos</p>
-                <h2>Portafolio con foco en presupuesto</h2>
-              </div>
-              <div class="legend">
-                <span class="dot green"></span> En progreso
-                <span class="dot amber"></span> Riesgo
-                <span class="dot gray"></span> Pausa
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panel-head">
-                <h3>Resumen macro</h3>
-                <div class="tags" id="projectFilters"></div>
-              </div>
-              <div class="table" id="projectTable"></div>
-            </div>
-            <div class="panel" id="projectDetail" aria-live="polite"></div>
-          </section>
+                <a href="#design-hub" class="nav-item" data-page="design-hub">
+                    <i class="fas fa-palette"></i>
+                    <span>Design Hub</span>
+                </a>
+                <a href="#design-system" class="nav-item" data-page="design-system">
+                    <i class="fas fa-swatchbook"></i>
+                    <span>Design System</span>
+                </a>
 
-          <section id="section-clients" class="section hidden">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Clientes</p>
-                <h2>Cartera y salud de cuentas</h2>
-              </div>
-            </div>
-            <div class="panel" id="clientsTable"></div>
-          </section>
+                <div class="nav-separator"></div>
 
-          <section id="section-agents" class="section hidden">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Agentes</p>
-                <h2>Humanos e IA en proyectos</h2>
-              </div>
-            </div>
-            <div class="panel" id="agentsTable"></div>
-          </section>
+                <a href="#reportes" class="nav-item" data-page="reportes">
+                    <i class="fas fa-file-export"></i>
+                    <span>Reportes</span>
+                </a>
+            </nav>
 
-          <section id="section-design" class="section hidden">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Design Hub</p>
-                <h2>Assets por proyecto</h2>
-              </div>
+            <div class="sidebar-footer">
+                <button class="collapse-btn" id="collapseBtn" title="Colapsar menu">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
             </div>
-            <div class="panel" id="designHub"></div>
-          </section>
+        </aside>
 
-          <section id="section-design-system" class="section hidden">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Design System</p>
-                <h2>SOLARIA UI Components</h2>
-              </div>
-            </div>
-            <div class="design-system-content" id="designSystemContent"></div>
-          </section>
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="header-btn mobile-menu-btn" id="mobileMenuBtn">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Buscar proyectos, clientes..." id="searchInput">
+                    </div>
+                </div>
 
-          <section id="section-reports" class="section hidden">
-            <div class="section-head">
-              <div>
-                <p class="eyebrow">Reportes</p>
-                <h2>Exportes rápidos para clientes</h2>
-              </div>
+                <div class="header-right">
+                    <button class="header-btn" id="notificationsBtn" title="Notificaciones">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge" id="notificationBadge"></span>
+                    </button>
+
+                    <button class="user-menu" id="userMenu">
+                        <div class="user-avatar" id="userAvatar">PM</div>
+                        <div class="user-info">
+                            <span class="user-name" id="userName">Project Manager</span>
+                            <span class="user-role" id="userRole">Account Manager</span>
+                        </div>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div class="content-area" id="contentArea">
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 24px;"></i>
+                </div>
             </div>
-            <div class="panel">
-              <p class="muted">Próximamente: PDFs y envíos automáticos. Utiliza los datos en las secciones actuales para responder a clientes.</p>
-            </div>
-          </section>
+
+            <footer class="footer">
+                <div class="footer-status">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Conectando...</span>
+                </div>
+                <div>SOLARIA OFFICE v3.2.0</div>
+            </footer>
         </main>
-      </div>
-    </section>
-  </div>
-  <script src="./office-utils.js"></script>
-  <script src="./office.js"></script>
+    </div>
+
+    <!-- Office Utils -->
+    <script src="./office-utils.js"></script>
+
+    <!-- Main Application -->
+    <script>
+    // ============================================
+    // SOLARIA OFFICE Dashboard Application
+    // ============================================
+
+    const OfficeApp = {
+        // State
+        state: {
+            currentPage: 'dashboard',
+            projects: [],
+            tasks: [],
+            agents: [],
+            clients: [],
+            user: null,
+            connected: false,
+            notifications: []
+        },
+
+        // Elements cache
+        elements: {},
+
+        // Socket.IO instance
+        socket: null,
+
+        // Chart instances
+        charts: {},
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        init() {
+            this.cacheElements();
+            this.bindEvents();
+            this.checkAuth();
+        },
+
+        cacheElements() {
+            this.elements = {
+                loginScreen: document.getElementById('loginScreen'),
+                loginForm: document.getElementById('loginForm'),
+                loginError: document.getElementById('loginError'),
+                appContainer: document.getElementById('appContainer'),
+                sidebar: document.getElementById('sidebar'),
+                contentArea: document.getElementById('contentArea'),
+                collapseBtn: document.getElementById('collapseBtn'),
+                mobileMenuBtn: document.getElementById('mobileMenuBtn'),
+                searchInput: document.getElementById('searchInput'),
+                userAvatar: document.getElementById('userAvatar'),
+                userName: document.getElementById('userName'),
+                userRole: document.getElementById('userRole'),
+                userMenu: document.getElementById('userMenu'),
+                statusDot: document.getElementById('statusDot'),
+                statusText: document.getElementById('statusText'),
+                notificationBadge: document.getElementById('notificationBadge')
+            };
+        },
+
+        bindEvents() {
+            // Login form
+            this.elements.loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleLogin();
+            });
+
+            // Navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const page = item.dataset.page;
+                    if (page) this.navigateTo(page);
+                });
+            });
+
+            // Sidebar collapse
+            this.elements.collapseBtn.addEventListener('click', () => {
+                this.elements.sidebar.classList.toggle('collapsed');
+            });
+
+            // Mobile menu
+            this.elements.mobileMenuBtn.addEventListener('click', () => {
+                this.elements.sidebar.classList.toggle('open');
+            });
+
+            // User menu logout
+            this.elements.userMenu.addEventListener('click', () => {
+                if (confirm('Cerrar sesion?')) {
+                    this.logout();
+                }
+            });
+
+            // Search
+            this.elements.searchInput.addEventListener('input', (e) => {
+                this.handleSearch(e.target.value);
+            });
+        },
+
+        // ============================================
+        // AUTHENTICATION
+        // ============================================
+        checkAuth() {
+            const token = localStorage.getItem('solaria_office_token');
+            const user = localStorage.getItem('solaria_office_user');
+
+            if (token && user) {
+                this.state.user = JSON.parse(user);
+                this.showApp();
+            } else {
+                this.showLogin();
+            }
+        },
+
+        async handleLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.token) {
+                    localStorage.setItem('solaria_office_token', data.token);
+                    localStorage.setItem('solaria_office_user', JSON.stringify(data.user));
+                    this.state.user = data.user;
+                    this.showApp();
+                } else {
+                    this.showLoginError('Credenciales invalidas');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                this.showLoginError('Error de conexion');
+            }
+        },
+
+        showLoginError(message) {
+            this.elements.loginError.textContent = message;
+            this.elements.loginError.classList.add('visible');
+            setTimeout(() => {
+                this.elements.loginError.classList.remove('visible');
+            }, 3000);
+        },
+
+        logout() {
+            localStorage.removeItem('solaria_office_token');
+            localStorage.removeItem('solaria_office_user');
+            this.state.user = null;
+            if (this.socket) this.socket.disconnect();
+            this.showLogin();
+        },
+
+        showLogin() {
+            this.elements.loginScreen.classList.remove('hidden');
+            this.elements.appContainer.classList.add('hidden');
+        },
+
+        showApp() {
+            this.elements.loginScreen.classList.add('hidden');
+            this.elements.appContainer.classList.remove('hidden');
+            this.updateUserInfo();
+            this.initSocket();
+            this.loadData();
+        },
+
+        updateUserInfo() {
+            if (this.state.user) {
+                const initials = this.state.user.name
+                    ? this.state.user.name.split(' ').map(n => n[0]).join('').toUpperCase()
+                    : 'PM';
+                this.elements.userAvatar.textContent = initials;
+                this.elements.userName.textContent = this.state.user.name || 'Project Manager';
+                this.elements.userRole.textContent = this.state.user.role || 'Account Manager';
+            }
+        },
+
+        // ============================================
+        // SOCKET.IO
+        // ============================================
+        initSocket() {
+            try {
+                this.socket = io({
+                    transports: ['websocket', 'polling'],
+                    reconnection: true,
+                    reconnectionAttempts: 5,
+                    reconnectionDelay: 1000
+                });
+
+                this.socket.on('connect', () => {
+                    console.log('Socket connected');
+                    this.state.connected = true;
+                    this.updateConnectionStatus(true);
+                });
+
+                this.socket.on('disconnect', () => {
+                    console.log('Socket disconnected');
+                    this.state.connected = false;
+                    this.updateConnectionStatus(false);
+                });
+
+                this.socket.on('task:created', (data) => {
+                    this.addNotification('Nueva tarea creada', data.title);
+                    this.loadData();
+                });
+
+                this.socket.on('task:updated', (data) => {
+                    this.loadData();
+                });
+
+                this.socket.on('project:updated', (data) => {
+                    this.loadData();
+                });
+
+            } catch (error) {
+                console.error('Socket init error:', error);
+                this.updateConnectionStatus(false);
+            }
+        },
+
+        updateConnectionStatus(connected) {
+            if (connected) {
+                this.elements.statusDot.classList.remove('disconnected');
+                this.elements.statusText.textContent = 'Conectado';
+            } else {
+                this.elements.statusDot.classList.add('disconnected');
+                this.elements.statusText.textContent = 'Desconectado';
+            }
+        },
+
+        // ============================================
+        // DATA LOADING
+        // ============================================
+        async loadData() {
+            try {
+                const [projectsRes, tasksRes, agentsRes] = await Promise.all([
+                    this.apiRequest('/public/projects'),
+                    this.apiRequest('/public/tasks'),
+                    this.apiRequest('/agents')
+                ]);
+
+                // Filter projects for Office visibility
+                const allProjects = projectsRes.data || projectsRes || [];
+                this.state.projects = typeof OfficeUtils !== 'undefined'
+                    ? OfficeUtils.filterOfficeProjects(allProjects)
+                    : allProjects;
+
+                // Merge tasks into projects
+                const allTasks = tasksRes.data || tasksRes || [];
+                this.state.tasks = allTasks;
+
+                if (typeof OfficeUtils !== 'undefined') {
+                    this.state.projects = OfficeUtils.mergeTasksIntoProjects(this.state.projects, allTasks);
+                    this.state.clients = OfficeUtils.summarizeProjectsByClient(this.state.projects);
+                }
+
+                this.state.agents = agentsRes.data || agentsRes || [];
+
+                // Render current page
+                this.renderCurrentPage();
+
+            } catch (error) {
+                console.error('Data load error:', error);
+            }
+        },
+
+        async apiRequest(endpoint, options = {}) {
+            const token = localStorage.getItem('solaria_office_token');
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const response = await fetch(`/api${endpoint}`, { ...options, headers });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    this.logout();
+                }
+                throw new Error(`API Error: ${response.status}`);
+            }
+
+            return response.json();
+        },
+
+        // ============================================
+        // NAVIGATION
+        // ============================================
+        navigateTo(page) {
+            this.state.currentPage = page;
+
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.page === page);
+            });
+
+            // Close mobile menu
+            this.elements.sidebar.classList.remove('open');
+
+            // Render page
+            this.renderCurrentPage();
+        },
+
+        renderCurrentPage() {
+            switch (this.state.currentPage) {
+                case 'dashboard':
+                    this.renderDashboard();
+                    break;
+                case 'proyectos':
+                    this.renderProjects();
+                    break;
+                case 'clientes':
+                    this.renderClients();
+                    break;
+                case 'agentes':
+                    this.renderAgents();
+                    break;
+                case 'design-hub':
+                    this.renderDesignHub();
+                    break;
+                case 'design-system':
+                    this.renderDesignSystem();
+                    break;
+                case 'reportes':
+                    this.renderReports();
+                    break;
+                default:
+                    this.renderDashboard();
+            }
+        },
+
+        // ============================================
+        // PAGE RENDERERS
+        // ============================================
+        renderDashboard() {
+            const projects = this.state.projects;
+            const tasks = this.state.tasks;
+            const agents = this.state.agents;
+
+            const totalBudget = projects.reduce((sum, p) => sum + (p.budget || 0), 0);
+            const activeProjects = projects.filter(p => !['completed', 'cancelled'].includes(p.status?.toLowerCase())).length;
+            const completedTasks = tasks.filter(t => t.status === 'completed').length;
+            const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
+            const activeAgents = agents.filter(a => a.status === 'active').length;
+
+            // Calculate budget segments
+            const avgCompletion = projects.length
+                ? Math.round(projects.reduce((sum, p) => sum + (p.completion_percentage || 0), 0) / projects.length)
+                : 0;
+
+            const budgetSegments = typeof OfficeUtils !== 'undefined'
+                ? OfficeUtils.calculateBudgetSegments({ budget: totalBudget, completion: avgCompletion })
+                : [];
+
+            this.elements.contentArea.innerHTML = `
+                <div class="fade-in">
+                    <div class="section-header">
+                        <div>
+                            <h1 class="section-title">Dashboard Ejecutivo</h1>
+                            <p class="section-subtitle">Vision general de la cartera de proyectos</p>
+                        </div>
+                    </div>
+
+                    <!-- KPIs -->
+                    <div class="metrics-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon blue"><i class="fas fa-folder-open"></i></div>
+                            <div class="stat-value">${projects.length}</div>
+                            <div class="stat-label">Proyectos</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green"><i class="fas fa-play-circle"></i></div>
+                            <div class="stat-value">${activeProjects}</div>
+                            <div class="stat-label">Activos</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon orange"><i class="fas fa-tasks"></i></div>
+                            <div class="stat-value">${inProgressTasks}</div>
+                            <div class="stat-label">En Progreso</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon purple"><i class="fas fa-check-circle"></i></div>
+                            <div class="stat-value">${completedTasks}</div>
+                            <div class="stat-label">Completadas</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green"><i class="fas fa-robot"></i></div>
+                            <div class="stat-value">${activeAgents}</div>
+                            <div class="stat-label">Agentes Activos</div>
+                        </div>
+                    </div>
+
+                    <!-- Budget Overview -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fas fa-chart-pie" style="margin-right: 8px; color: var(--solaria-orange);"></i>Presupuesto Total</h3>
+                            <span style="font-size: 24px; font-weight: 700; color: var(--solaria-orange);">$${this.formatCurrency(totalBudget)}</span>
+                        </div>
+                        <div class="budget-segments">
+                            ${budgetSegments.map(seg => `
+                                <div class="budget-segment">
+                                    <div class="budget-segment-label">${seg.label}</div>
+                                    <div class="budget-segment-value">$${this.formatCurrency(seg.amount)}</div>
+                                    <div class="budget-segment-bar">
+                                        <div class="fill" style="width: ${seg.percentage}%; background: ${seg.color};"></div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Projects Overview -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title"><i class="fas fa-folder-open" style="margin-right: 8px; color: var(--solaria-orange);"></i>Proyectos Recientes</h3>
+                            <button class="btn btn-secondary" onclick="OfficeApp.navigateTo('proyectos')">Ver Todos</button>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Proyecto</th>
+                                    <th>Cliente</th>
+                                    <th>Estado</th>
+                                    <th>Progreso</th>
+                                    <th>Presupuesto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${projects.slice(0, 5).map(p => `
+                                    <tr onclick="OfficeApp.viewProject(${p.id})" style="cursor: pointer;">
+                                        <td><strong>${p.name}</strong></td>
+                                        <td>${p.client || '-'}</td>
+                                        <td><span class="status-badge ${this.getStatusClass(p.status)}">${p.status || 'N/A'}</span></td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <div class="progress-bar" style="flex: 1; max-width: 100px;">
+                                                    <div class="progress-fill ${this.getProgressColor(p.completion_percentage)}" style="width: ${p.completion_percentage || 0}%;"></div>
+                                                </div>
+                                                <span style="font-size: 12px; color: var(--text-muted);">${p.completion_percentage || 0}%</span>
+                                            </div>
+                                        </td>
+                                        <td>$${this.formatCurrency(p.budget || 0)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        },
+
+        renderProjects() {
+            const projects = this.state.projects;
+
+            this.elements.contentArea.innerHTML = `
+                <div class="fade-in">
+                    <div class="section-header">
+                        <div>
+                            <h1 class="section-title">Proyectos</h1>
+                            <p class="section-subtitle">${projects.length} proyectos en cartera</p>
+                        </div>
+                        <div class="section-actions">
+                            <div class="view-toggle">
+                                <button class="view-toggle-btn active" onclick="OfficeApp.setProjectsView('table')">
+                                    <i class="fas fa-table"></i> Tabla
+                                </button>
+                                <button class="view-toggle-btn" onclick="OfficeApp.setProjectsView('cards')">
+                                    <i class="fas fa-th-large"></i> Cards
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Proyecto</th>
+                                    <th>Cliente</th>
+                                    <th>Estado</th>
+                                    <th>Tareas</th>
+                                    <th>Progreso</th>
+                                    <th>Presupuesto</th>
+                                    <th>Deadline</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${projects.map(p => `
+                                    <tr onclick="OfficeApp.viewProject(${p.id})" style="cursor: pointer;">
+                                        <td>
+                                            <div style="font-weight: 600;">${p.name}</div>
+                                            <div style="font-size: 11px; color: var(--text-muted);">${p.code || ''}</div>
+                                        </td>
+                                        <td>${p.client || '-'}</td>
+                                        <td><span class="status-badge ${this.getStatusClass(p.status)}">${p.status || 'N/A'}</span></td>
+                                        <td>
+                                            <span style="color: var(--color-positive);">${p.completed_tasks || 0}</span>
+                                            <span style="color: var(--text-muted);">/ ${p.total_tasks || 0}</span>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <div class="progress-bar" style="flex: 1; max-width: 80px;">
+                                                    <div class="progress-fill ${this.getProgressColor(p.completion_percentage)}" style="width: ${p.completion_percentage || 0}%;"></div>
+                                                </div>
+                                                <span style="font-size: 12px;">${p.completion_percentage || 0}%</span>
+                                            </div>
+                                        </td>
+                                        <td>$${this.formatCurrency(p.budget || 0)}</td>
+                                        <td style="font-size: 12px; color: var(--text-muted);">${p.deadline ? new Date(p.deadline).toLocaleDateString('es-ES') : '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        },
+
+        renderClients() {
+            const clients = this.state.clients;
+
+            this.elements.contentArea.innerHTML = `
+                <div class="fade-in">
+                    <div class="section-header">
+                        <div>
+                            <h1 class="section-title">Clientes</h1>
+                            <p class="section-subtitle">${clients.length} clientes activos</p>
+                        </div>
+                    </div>
+
+                    <div class="metrics-grid" style="margin-bottom: 24px;">
+                        ${clients.map(client => `
+                            <div class="card" style="cursor: pointer;" onclick="OfficeApp.filterByClient('${client.name}')">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                    <div>
+                                        <div style="font-weight: 600; font-size: 15px;">${client.name}</div>
+                                        <div style="font-size: 12px; color: var(--text-muted);">${client.projects.length} proyecto${client.projects.length !== 1 ? 's' : ''}</div>
+                                    </div>
+                                    <span style="font-size: 11px; font-weight: 600; color: var(--color-positive); background: var(--color-positive-bg); padding: 3px 8px; border-radius: 4px;">
+                                        ${client.active} activo${client.active !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Presupuesto</div>
+                                        <div style="font-size: 18px; font-weight: 700; color: var(--solaria-orange);">$${this.formatCurrency(client.budget)}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Progreso</div>
+                                        <div style="font-size: 18px; font-weight: 700;">${client.progress}%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        },
+
+        renderAgents() {
+            const agents = this.state.agents;
+            const humanAgents = agents.filter(a => a.type === 'human' || !a.type);
+            const aiAgents = agents.filter(a => a.type === 'ai' || a.type === 'AI');
+
+            this.elements.contentArea.innerHTML = `
+                <div class="fade-in">
+                    <div class="section-header">
+                        <div>
+                            <h1 class="section-title">Agentes</h1>
+                            <p class="section-subtitle">${agents.length} agentes registrados</p>
+                        </div>
+                    </div>
+
+                    <div class="metrics-grid" style="margin-bottom: 24px;">
+                        <div class="stat-card">
+                            <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+                            <div class="stat-value">${humanAgents.length}</div>
+                            <div class="stat-label">Humanos</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon purple"><i class="fas fa-robot"></i></div>
+                            <div class="stat-value">${aiAgents.length}</div>
+                            <div class="stat-label">IA</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green"><i class="fas fa-circle"></i></div>
+                            <div class="stat-value">${agents.filter(a => a.status === 'active').length}</div>
+                            <div class="stat-label">Activos</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Agente</th>
+                                    <th>Tipo</th>
+                                    <th>Rol</th>
+                                    <th>Estado</th>
+                                    <th>Especialidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${agents.map(a => `
+                                    <tr>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <div style="width: 32px; height: 32px; border-radius: 8px; background: ${a.type === 'ai' || a.type === 'AI' ? 'var(--color-info-bg)' : 'var(--solaria-orange)'}20; color: ${a.type === 'ai' || a.type === 'AI' ? 'var(--color-info)' : 'var(--solaria-orange)'}; display: flex; align-items: center; justify-content: center;">
+                                                    <i class="fas ${a.type === 'ai' || a.type === 'AI' ? 'fa-robot' : 'fa-user'}"></i>
+                                                </div>
+                                                <strong>${a.name}</strong>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span style="font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; background: ${a.type === 'ai' || a.type === 'AI' ? 'var(--color-info-bg)' : 'var(--color-warning-bg)'}; color: ${a.type === 'ai' || a.type === 'AI' ? 'var(--color-info)' : 'var(--color-warning)'};">
+                                                ${a.type === 'ai' || a.type === 'AI' ? 'IA' : 'Humano'}
+                                            </span>
+                                        </td>
+                                        <td>${a.role || '-'}</td>
+                                        <td>
+                                            <span style="display: inline-flex; align-items: center; gap: 6px;">
+                                                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${a.status === 'active' ? 'var(--color-positive)' : 'var(--text-muted)'};"></span>
+                                                ${a.status === 'active' ? 'Activo' : a.status || 'Inactivo'}
+                                            </span>
+                                        </td>
+                                        <td style="font-size: 12px; color: var(--text-muted);">${a.specialization || a.specialty || '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        },
+
+        renderDesignHub() {
+            this.elements.contentArea.innerHTML = `
+                <div class="fade-in">
+                    <div class="section-header">
+                        <div>
+                            <h1 class="section-title">Design Hub</h1>
+                            <p class="section-subtitle">Assets y recursos de diseno por proyecto</p>
+                        </div>
+                    </div>
+
+                    <div class="metrics-grid">
+                        ${this.state.projects.slice(0, 6).map(p => `
+                            <div class="card">
+                                <div style="font-weight: 600; margin-bottom: 12px;">${p.name}</div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <span style="font-size: 11px; padding: 4px 10px; border-radius: 6px; background: var(--bg-tertiary); color: var(--text-secondary);">
+                                        <i class="fas fa-palette" style="margin-right: 4px;"></i>Brand
+                                    </span>
+                                    <span style="font-size: 11px; padding: 4px 10px; border-radius: 6px; background: var(--bg-tertiary); color: var(--text-secondary);">
+                                        <i class="fas fa-desktop" style="margin-right: 4px;"></i>UI Kit
+                                    </span>
+                                    <span style="font-size: 11px; padding: 4px 10px; border-radius: 6px; background: var(--bg-tertiary); color: var(--text-secondary);">
+                                        <i class="fas fa-file-alt" style="margin-right: 4px;"></i>Docs
+                                    </span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        },
+
+        renderDesignSystem() {
+            this.elements.contentArea.innerHTML = `
+                <div class="fade-in">
+                    <div class="section-header">
+                        <div>
+                            <h1 class="section-title">Design System</h1>
+                            <p class="section-subtitle">SOLARIA UI Components</p>
+                        </div>
+                    </div>
+
+                    <!-- Colors -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <h3 class="card-title" style="margin-bottom: 16px;">Colores</h3>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <div style="text-align: center;">
+                                <div style="width: 60px; height: 60px; border-radius: 12px; background: var(--solaria-orange);"></div>
+                                <div style="font-size: 11px; margin-top: 6px; color: var(--text-muted);">Primary</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="width: 60px; height: 60px; border-radius: 12px; background: var(--color-positive);"></div>
+                                <div style="font-size: 11px; margin-top: 6px; color: var(--text-muted);">Success</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="width: 60px; height: 60px; border-radius: 12px; background: var(--color-negative);"></div>
+                                <div style="font-size: 11px; margin-top: 6px; color: var(--text-muted);">Error</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="width: 60px; height: 60px; border-radius: 12px; background: var(--color-warning);"></div>
+                                <div style="font-size: 11px; margin-top: 6px; color: var(--text-muted);">Warning</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="width: 60px; height: 60px; border-radius: 12px; background: var(--color-info);"></div>
+                                <div style="font-size: 11px; margin-top: 6px; color: var(--text-muted);">Info</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <h3 class="card-title" style="margin-bottom: 16px;">Botones</h3>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                            <button class="btn btn-primary">Primary Button</button>
+                            <button class="btn btn-secondary">Secondary Button</button>
+                            <button class="btn btn-primary" disabled style="opacity: 0.5;">Disabled</button>
+                        </div>
+                    </div>
+
+                    <!-- Status Badges -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <h3 class="card-title" style="margin-bottom: 16px;">Status Badges</h3>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <span class="status-badge progress">En Progreso</span>
+                            <span class="status-badge risk">En Riesgo</span>
+                            <span class="status-badge paused">Pausado</span>
+                            <span class="status-badge completed">Completado</span>
+                        </div>
+                    </div>
+
+                    <!-- Typography -->
+                    <div class="card">
+                        <h3 class="card-title" style="margin-bottom: 16px;">Tipografia</h3>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <h1 style="font-size: 24px; font-weight: 700;">Heading 1 - Inter 700</h1>
+                            <h2 style="font-size: 20px; font-weight: 600;">Heading 2 - Inter 600</h2>
+                            <h3 style="font-size: 16px; font-weight: 600;">Heading 3 - Inter 600</h3>
+                            <p style="font-size: 14px; font-weight: 400; color: var(--text-secondary);">Body text - Inter 400</p>
+                            <span style="font-size: 12px; font-weight: 500; color: var(--text-muted);">Caption - Inter 500</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        },
+
+        renderReports() {
+            this.elements.contentArea.innerHTML = `
+                <div class="fade-in">
+                    <div class="section-header">
+                        <div>
+                            <h1 class="section-title">Reportes</h1>
+                            <p class="section-subtitle">Exportes y documentos para clientes</p>
+                        </div>
+                    </div>
+
+                    <div class="card" style="text-align: center; padding: 60px;">
+                        <i class="fas fa-file-export" style="font-size: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
+                        <h3 style="color: var(--text-secondary); margin-bottom: 8px;">Proximamente</h3>
+                        <p style="color: var(--text-muted); max-width: 400px; margin: 0 auto;">
+                            Generacion automatica de PDFs, informes de progreso y exportes personalizados para clientes.
+                        </p>
+                    </div>
+                </div>
+            `;
+        },
+
+        // ============================================
+        // UTILITY METHODS
+        // ============================================
+        formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+        },
+
+        getStatusClass(status) {
+            if (typeof OfficeUtils !== 'undefined') {
+                return OfficeUtils.statusClass(status);
+            }
+            if (!status) return 'progress';
+            const s = status.toLowerCase();
+            if (['completed', 'done'].includes(s)) return 'completed';
+            if (['blocked', 'risk', 'at_risk'].includes(s)) return 'risk';
+            if (['paused', 'on_hold'].includes(s)) return 'paused';
+            return 'progress';
+        },
+
+        getProgressColor(percentage) {
+            if (percentage >= 75) return 'green';
+            if (percentage >= 50) return 'blue';
+            if (percentage >= 25) return 'orange';
+            return 'red';
+        },
+
+        viewProject(projectId) {
+            console.log('View project:', projectId);
+            // TODO: Implement project detail view
+        },
+
+        filterByClient(clientName) {
+            console.log('Filter by client:', clientName);
+            // TODO: Implement client filter
+        },
+
+        setProjectsView(view) {
+            console.log('Set projects view:', view);
+            // TODO: Implement view switching
+        },
+
+        handleSearch(query) {
+            console.log('Search:', query);
+            // TODO: Implement search
+        },
+
+        addNotification(title, message) {
+            this.state.notifications.push({ title, message, time: new Date() });
+            const badge = this.elements.notificationBadge;
+            badge.textContent = this.state.notifications.length;
+            badge.classList.add('has-notifications');
+        }
+    };
+
+    // Initialize on DOM ready
+    document.addEventListener('DOMContentLoaded', () => {
+        OfficeApp.init();
+    });
+
+    // Make globally accessible
+    window.OfficeApp = OfficeApp;
+    </script>
 </body>
 </html>
