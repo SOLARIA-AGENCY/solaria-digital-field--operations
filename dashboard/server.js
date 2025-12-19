@@ -883,19 +883,31 @@ class SolariaDashboardServer {
                 origin
             } = req.body;
 
+            if (!name) {
+                return res.status(400).json({ error: 'Project name is required' });
+            }
+
             const normalizedOrigin = (office_origin || origin || req.headers['x-solaria-portal'] || '').toLowerCase() === 'office'
                 ? 'office'
                 : 'dfo';
             const normalizedVisibility = office_visible === true || office_visible === 1 || String(office_visible).toLowerCase() === 'true';
             const officeVisible = normalizedOrigin === 'office' ? 1 : normalizedVisibility ? 1 : 0;
 
+            // Generate unique project code
+            const [maxCode] = await this.db.execute(`
+                SELECT MAX(CAST(SUBSTRING(code, 5) AS UNSIGNED)) as max_num
+                FROM projects WHERE code LIKE 'PRJ-%'
+            `);
+            const nextNum = (maxCode[0]?.max_num || 0) + 1;
+            const projectCode = `PRJ-${String(nextNum).padStart(3, '0')}`;
+
             const [result] = await this.db.execute(`
                 INSERT INTO projects (
-                    name, client, description, priority, budget,
+                    name, code, client, description, priority, budget,
                     start_date, deadline, created_by, office_origin, office_visible
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
-                name, client, description, priority, budget,
+                name, projectCode, client, description, priority, budget,
                 start_date, deadline, req.user.userId, normalizedOrigin, officeVisible
             ]);
 
@@ -914,10 +926,13 @@ class SolariaDashboardServer {
 
             res.status(201).json({
                 id: result.insertId,
+                project_id: result.insertId,
+                code: projectCode,
                 message: 'Project created successfully'
             });
 
         } catch (error) {
+            console.error('Error creating project:', error);
             res.status(500).json({ error: 'Failed to create project' });
         }
     }
