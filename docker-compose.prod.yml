@@ -84,37 +84,47 @@ services:
       - solaria-dfo-network
 
   # ===========================================
-  # NGINX: Disabled - using external nginx (prilabsa-nginx)
-  # Uncomment if deploying standalone without external proxy
+  # NGINX: Unified reverse proxy for all SOLARIA domains
+  # Manages: dfo.solaria.agency, office.solaria.agency, prilabsa.solaria.agency
   # ===========================================
-  # nginx:
-  #   image: nginx:alpine
-  #   container_name: solaria-dfo-nginx
-  #   ports:
-  #     - "8080:80"
-  #     - "8443:443"
-  #   volumes:
-  #     - ./infrastructure/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
-  #     - ./ssl:/etc/nginx/ssl:ro
-  #     - /etc/letsencrypt:/etc/letsencrypt:ro
-  #   depends_on:
-  #     - office
-  #     - mcp-http
-  #   healthcheck:
-  #     test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1/health"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #   restart: always
-  #   networks:
-  #     - solaria-dfo-network
+  nginx:
+    image: nginx:alpine
+    container_name: solaria-dfo-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./scripts/install-mcp-remote.sh:/etc/nginx/install-mcp-remote.sh:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot
+    depends_on:
+      office:
+        condition: service_healthy
+      mcp-http:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: always
+    networks:
+      - solaria-dfo-network
+      - prilabsa-network
 
 volumes:
   office_mysql_data:
     driver: local
   redis_data:
     driver: local
+  certbot_webroot:
+    driver: local
 
 networks:
   solaria-dfo-network:
     driver: bridge
+  prilabsa-network:
+    external: true
+    name: prilabsa-production-network
