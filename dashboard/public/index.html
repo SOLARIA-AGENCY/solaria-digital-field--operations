@@ -5282,23 +5282,10 @@
                                 </div>
                             </div>
                             <div class="completed-tasks-feed" id="recentProjectsFeed">
-                                ${PROJECTS_DATA.slice(0, 5).map(p => `
-                                    <div class="completed-task-item" onclick="App.showProjectDetail('${p.slug || p.id}')">
-                                        <div class="task-check-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">
-                                            <i class="fas fa-folder"></i>
-                                        </div>
-                                        <div class="task-content">
-                                            <div class="task-title-row">
-                                                <span class="task-title">${this.escapeHtml(p.name)}</span>
-                                                <span class="task-priority-badge ${p.status === 'completed' ? 'low' : p.status === 'development' ? 'high' : 'medium'}">${p.status || 'activo'}</span>
-                                            </div>
-                                            <div class="task-meta">
-                                                <span class="task-meta-item"><i class="fas fa-tasks"></i> ${p.stats?.tasks || 0} tareas</span>
-                                                <span class="task-meta-item"><i class="fas fa-percentage"></i> ${p.stats?.tasks > 0 ? Math.round((p.stats?.completed || 0) / p.stats.tasks * 100) : 0}%</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                `).join('') || '<div class="feed-empty"><i class="fas fa-folder-open"></i><p>No hay proyectos</p></div>'}
+                                <div class="feed-loading">
+                                    <i class="fas fa-spinner"></i>
+                                    <p>Cargando proyectos...</p>
+                                </div>
                             </div>
                         </div>
 
@@ -5326,21 +5313,38 @@
                     </div>
                 `;
 
-                // Load dashboard stats, completed tasks, and projects
+                // Load dashboard stats (includes recent projects), completed tasks, and new tasks
                 this.loadDashboardStats();
                 this.loadCompletedTasksFeed();
                 this.loadNewTasksByProject();
-                this.loadRecentProjects();
             },
 
-            async loadRecentProjects() {
+            async loadDashboardStats() {
+                try {
+                    const dashboard = await API.getDashboard();
+                    if (dashboard) {
+                        document.getElementById('statProjects').textContent = dashboard.projects?.active_projects || dashboard.projects?.total_projects || PROJECTS_DATA.length;
+                        document.getElementById('statCompleted').textContent = dashboard.tasks?.completed_tasks || 0;
+                        document.getElementById('statInProgress').textContent = dashboard.tasks?.in_progress_tasks || 0;
+                        document.getElementById('statAgents').textContent = dashboard.agents?.active_agents || 0;
+                    }
+
+                    // Also load recent projects feed (integrated here for reliability)
+                    this.loadRecentProjectsFeed();
+                } catch (error) {
+                    console.warn('Failed to load dashboard stats:', error);
+                    // Use fallback data
+                    document.getElementById('statProjects').textContent = PROJECTS_DATA.length;
+                    this.loadRecentProjectsFeed();
+                }
+            },
+
+            async loadRecentProjectsFeed() {
                 const feedContainer = document.getElementById('recentProjectsFeed');
                 if (!feedContainer) return;
 
                 try {
-                    // Wait for PROJECTS_DATA to be loaded (already populated in init)
                     if (PROJECTS_DATA.length === 0) {
-                        // Fetch projects from API if not loaded
                         const response = await API.getProjects();
                         if (response && response.projects) {
                             PROJECTS_DATA = this.transformProjectsFromAPI(response.projects);
@@ -5371,22 +5375,6 @@
                 } catch (error) {
                     console.error('Failed to load recent projects:', error);
                     feedContainer.innerHTML = '<div class="feed-empty"><i class="fas fa-exclamation-triangle"></i><p>Error cargando proyectos</p></div>';
-                }
-            },
-
-            async loadDashboardStats() {
-                try {
-                    const dashboard = await API.getDashboard();
-                    if (dashboard) {
-                        document.getElementById('statProjects').textContent = dashboard.projects?.active_projects || dashboard.projects?.total_projects || PROJECTS_DATA.length;
-                        document.getElementById('statCompleted').textContent = dashboard.tasks?.completed_tasks || 0;
-                        document.getElementById('statInProgress').textContent = dashboard.tasks?.in_progress_tasks || 0;
-                        document.getElementById('statAgents').textContent = dashboard.agents?.active_agents || 0;
-                    }
-                } catch (error) {
-                    console.warn('Failed to load dashboard stats:', error);
-                    // Use fallback data
-                    document.getElementById('statProjects').textContent = PROJECTS_DATA.length;
                 }
             },
 
