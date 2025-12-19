@@ -2285,6 +2285,7 @@
         .url-item-icon.local { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
         .url-item-icon.repo { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
         .url-item-icon.portal { background: rgba(246, 146, 29, 0.2); color: var(--solaria-orange); }
+        .url-item-icon.github { background: rgba(255, 255, 255, 0.1); color: #f0f6fc; }
 
         .url-item-text {
             flex: 1;
@@ -5617,8 +5618,27 @@
             async showProjectDetail(projectId) {
                 console.log('Navigating to project:', projectId);
 
-                // Navigate to projects page
-                // Update nav active state
+                // Convert to number for comparison
+                const targetId = parseInt(projectId) || projectId;
+
+                // Find the project in data
+                const project = PROJECTS_DATA.find(p => p.id === targetId || p.id == projectId || p.slug === projectId);
+
+                if (project) {
+                    // Directly open the project detail view
+                    this.state.currentProjectId = project.id;
+                    this.state.currentProject = project;
+                    this.renderProjectDetail(project);
+
+                    App.addNotification({
+                        type: 'info',
+                        message: `Abriendo proyecto: ${project.name}`,
+                        icon: 'folder-open'
+                    });
+                    return;
+                }
+
+                // Fallback: Navigate to projects page and highlight
                 const navItem = document.querySelector('[data-page="proyectos"]');
                 if (navItem) {
                     App.elements.navItems.forEach(nav => nav.classList.remove('active'));
@@ -5627,12 +5647,12 @@
                 App.state.currentPage = 'proyectos';
                 await App.renderProjectsPage();
 
-                // Find and scroll to the project card
+                // Find and scroll to the project card (check both data-id and data-project-id)
                 setTimeout(() => {
                     const projectCards = document.querySelectorAll('.project-card');
                     for (const card of projectCards) {
-                        const cardId = card.getAttribute('data-project-id') || card.dataset.projectId;
-                        if (cardId == projectId || card.querySelector(`[data-id="${projectId}"]`)) {
+                        const cardId = card.getAttribute('data-id') || card.getAttribute('data-project-id') || card.dataset.id;
+                        if (cardId == projectId || cardId == targetId) {
                             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             card.style.animation = 'pulse-highlight 1.5s ease';
                             card.style.boxShadow = '0 0 0 3px var(--solaria-orange)';
@@ -5676,14 +5696,14 @@
                                 <div class="stat-value" id="statProjects">-</div>
                             </div>
                         </div>
-                        <div class="stat-card" onclick="App.navigateTo('proyectos')" style="cursor: pointer;" title="Ver tareas completadas">
+                        <div class="stat-card" onclick="App.showTasksByStatus('completed')" style="cursor: pointer;" title="Ver tareas completadas">
                             <div class="stat-icon tasks"><i class="fas fa-check-circle"></i></div>
                             <div class="stat-content">
                                 <div class="stat-label">Tareas Completadas</div>
                                 <div class="stat-value" id="statCompleted">-</div>
                             </div>
                         </div>
-                        <div class="stat-card" onclick="App.navigateTo('proyectos')" style="cursor: pointer;" title="Ver tareas en progreso">
+                        <div class="stat-card" onclick="App.showTasksByStatus('in_progress')" style="cursor: pointer;" title="Ver tareas en progreso">
                             <div class="stat-icon active"><i class="fas fa-clock"></i></div>
                             <div class="stat-content">
                                 <div class="stat-label">En Progreso</div>
@@ -5778,19 +5798,54 @@
                 try {
                     const dashboard = await API.getDashboard();
                     if (dashboard) {
-                        document.getElementById('statProjects').textContent = dashboard.projects?.active_projects || dashboard.projects?.total_projects || PROJECTS_DATA.length;
+                        // Use total_projects first (actual count), then fallback to active_projects
+                        const projectCount = dashboard.projects?.total_projects || dashboard.projects?.active_projects || PROJECTS_DATA.length;
+                        document.getElementById('statProjects').textContent = projectCount;
                         document.getElementById('statCompleted').textContent = dashboard.tasks?.completed_tasks || 0;
                         document.getElementById('statInProgress').textContent = dashboard.tasks?.in_progress_tasks || 0;
                         document.getElementById('statAgents').textContent = dashboard.agents?.active_agents || 0;
+
+                        // Store stats for later use
+                        this.state.dashboardStats = dashboard;
                     }
 
                     // Also load recent projects feed (integrated here for reliability)
                     this.loadRecentProjectsFeed();
                 } catch (error) {
                     console.warn('Failed to load dashboard stats:', error);
-                    // Use fallback data
+                    // Use fallback data - count actual projects
                     document.getElementById('statProjects').textContent = PROJECTS_DATA.length;
                     this.loadRecentProjectsFeed();
+                }
+            },
+
+            // Navigate to tasks view filtered by status
+            async showTasksByStatus(status) {
+                console.log('Showing tasks by status:', status);
+
+                // Navigate to first project with tasks of this status, or show global tasks modal
+                const navItem = document.querySelector('[data-page="proyectos"]');
+                if (navItem) {
+                    App.elements.navItems.forEach(nav => nav.classList.remove('active'));
+                    navItem.classList.add('active');
+                }
+                App.state.currentPage = 'proyectos';
+
+                // Find first project with matching tasks
+                if (PROJECTS_DATA.length > 0) {
+                    const firstProject = PROJECTS_DATA[0];
+                    this.state.currentProjectId = firstProject.id;
+                    this.state.currentProject = firstProject;
+                    this.state.taskStatusFilter = status; // Store filter for project detail view
+                    this.renderProjectDetail(firstProject);
+
+                    App.addNotification({
+                        type: 'info',
+                        message: `Mostrando tareas ${status === 'completed' ? 'completadas' : 'en progreso'}`,
+                        icon: status === 'completed' ? 'check-circle' : 'clock'
+                    });
+                } else {
+                    await App.renderProjectsPage();
                 }
             },
 
@@ -7968,7 +8023,8 @@
                     { key: 'production', label: 'Prod', icon: 'fa-globe', class: 'prod' },
                     { key: 'staging', label: 'Staging', icon: 'fa-flask', class: 'staging' },
                     { key: 'local', label: 'Local', icon: 'fa-laptop-code', class: 'local' },
-                    { key: 'repository', label: 'Repo', icon: 'fa-code-branch', class: 'repo' }
+                    { key: 'repository', label: 'Repo', icon: 'fa-code-branch', class: 'repo' },
+                    { key: 'github', label: 'GitHub', icon: 'fa-brands fa-github', class: 'github' }
                 ];
 
                 const urlsHTML = urlItems.map(item => {
@@ -8124,7 +8180,7 @@
 
             renderProjectDetail(project) {
                 const { id, name, description, icon, tags, phase, stats, board, urls, manualTodos, client } = project;
-                const phaseInfo = PROJECT_PHASES[phase];
+                const phaseInfo = PROJECT_PHASES[phase] || { label: 'Planificación', color: '#3b82f6' };
 
                 // Phase segments
                 const phaseOrder = ['planning', 'development', 'testing', 'production'];
@@ -8136,17 +8192,28 @@
                     return `<div class="progress-segment ${segmentClass}"></div>`;
                 }).join('');
 
-                const tagsHTML = tags.map(t => `<span class="project-tag ${t.color}">${t.label}</span>`).join('');
+                const tagsHTML = (tags || []).map(t => `<span class="project-tag ${t.color}">${t.label}</span>`).join('');
 
-                // Format budget
-                const budgetFormatted = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(stats.budget);
-                const deadlineDate = new Date(stats.deadline);
-                const daysRemaining = Math.ceil((deadlineDate - new Date()) / (1000 * 60 * 60 * 24));
+                // Format budget with validation
+                const budgetFormatted = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(stats?.budget || 0);
 
-                // Render cards
+                // Validate deadline and calculate days remaining
+                const deadlineDate = stats?.deadline ? new Date(stats.deadline) : null;
+                const isValidDeadline = deadlineDate && !isNaN(deadlineDate.getTime());
+                const daysRemaining = isValidDeadline ? Math.ceil((deadlineDate - new Date()) / (1000 * 60 * 60 * 24)) : null;
+
+                // Calculate completion percentage with validation
+                const totalTasks = stats?.tasks || 0;
+                const completedTasks = stats?.completed || 0;
+                const completionPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+                // Format remaining days string
+                const daysRemainingStr = daysRemaining !== null ? `${daysRemaining}d` : 'Sin fecha';
+                const daysRemainingColor = daysRemaining === null ? 'var(--text-muted)' : (daysRemaining < 30 ? '#ef4444' : '#22c55e');
+
+                // Render cards (only tasks and urls - budget removed from grid)
                 const tasksCardHTML = this.renderTasksCard(stats, board);
-                const budgetCardHTML = this.renderBudgetCard(stats);
-                const urlsCardHTML = this.renderUrlsCard(urls);
+                const urlsCardHTML = this.renderUrlsCard(urls, project);
 
                 this.elements.contentArea.innerHTML = `
                     <div class="section-header" style="flex-shrink: 0;">
@@ -8161,7 +8228,7 @@
                         </div>
                         <div class="section-actions" style="display: flex; gap: 8px;">
                             <button class="btn-primary" onclick="App.openProjectFicha()">
-                                <i class="fas fa-id-card"></i> Ficha
+                                <i class="fas fa-id-card"></i> Info
                             </button>
                             <button class="btn-secondary" onclick="App.editProject(${id})">
                                 <i class="fas fa-edit"></i>
@@ -8170,8 +8237,8 @@
                     </div>
 
                     <div class="scrollable" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;">
-                        <!-- PROJECT HEADER: Icon + Tags + Phase + Stats -->
-                        <div class="project-card" style="padding: 16px; margin-bottom: 12px;">
+                        <!-- PROJECT HEADER: Icon + Tags + Phase + Stats - CLICKABLE -->
+                        <div class="project-card" style="padding: 16px; margin-bottom: 12px; cursor: pointer;" onclick="App.openProjectFicha()" title="Click para ver información completa del proyecto">
                             <div style="display: flex; gap: 16px; align-items: flex-start;">
                                 <div class="project-icon" style="width: 56px; height: 56px; flex-shrink: 0;">
                                     <i class="fas ${icon}" style="font-size: 24px;"></i>
@@ -8181,6 +8248,7 @@
                                     <p style="font-size: 11px; color: var(--text-secondary); margin: 0; line-height: 1.4;">${description}</p>
                                     ${client ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 6px;"><i class="fas fa-building" style="margin-right: 4px;"></i>${client.name}</div>` : ''}
                                 </div>
+                                <div style="color: var(--text-muted); font-size: 12px;"><i class="fas fa-chevron-right"></i></div>
                             </div>
 
                             <!-- Phase Progress -->
@@ -8192,7 +8260,7 @@
                                 <div class="progress-segments" style="height: 6px; gap: 2px;">${segmentsHTML}</div>
                             </div>
 
-                            <!-- Quick Stats Row -->
+                            <!-- Quick Stats Row - With validated values -->
                             <div class="metrics-row compact" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color);">
                                 <div class="metric-cell">
                                     <div class="metric-value" style="font-size: 16px; color: var(--solaria-orange);">${budgetFormatted}</div>
@@ -8200,26 +8268,25 @@
                                 </div>
                                 <div class="metric-divider"></div>
                                 <div class="metric-cell">
-                                    <div class="metric-value" style="font-size: 16px; color: #3b82f6;">${stats.tasks}</div>
+                                    <div class="metric-value" style="font-size: 16px; color: #3b82f6;">${totalTasks}</div>
                                     <div class="metric-label" style="font-size: 8px;">Tareas</div>
                                 </div>
                                 <div class="metric-divider"></div>
                                 <div class="metric-cell">
-                                    <div class="metric-value" style="font-size: 16px; color: #22c55e;">${Math.round((stats.completed / stats.tasks) * 100)}%</div>
+                                    <div class="metric-value" style="font-size: 16px; color: #22c55e;">${completionPercent}%</div>
                                     <div class="metric-label" style="font-size: 8px;">Completado</div>
                                 </div>
                                 <div class="metric-divider"></div>
                                 <div class="metric-cell">
-                                    <div class="metric-value" style="font-size: 16px; color: ${daysRemaining < 30 ? '#ef4444' : '#22c55e'};">${daysRemaining}d</div>
+                                    <div class="metric-value" style="font-size: 16px; color: ${daysRemainingColor};">${daysRemainingStr}</div>
                                     <div class="metric-label" style="font-size: 8px;">Restantes</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- QUICK ACCESS CARDS: Tasks, Budget, URLs -->
-                        <div class="info-cards-grid" style="margin-bottom: 12px;">
+                        <!-- QUICK ACCESS CARDS: Tasks (expanded) and URLs -->
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px;">
                             ${tasksCardHTML}
-                            ${budgetCardHTML}
                             ${urlsCardHTML}
                         </div>
 
@@ -8387,8 +8454,8 @@
                                 <i class="fas fa-arrow-left"></i>
                             </button>
                             <div style="min-width: 0;">
-                                <h1 class="section-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Ficha: ${name}</h1>
-                                <p class="section-subtitle">Informacion completa del proyecto</p>
+                                <h1 class="section-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Información de Proyecto</h1>
+                                <p class="section-subtitle" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${name}</p>
                             </div>
                         </div>
                         <div class="section-actions">
