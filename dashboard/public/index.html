@@ -8272,38 +8272,108 @@
                 if (overlay) overlay.remove();
             },
 
-            saveProject(id) {
+            async saveProject(id) {
                 const project = PROJECTS_DATA.find(p => p.id === id);
                 if (!project) return;
 
-                // Update project data from form
-                project.name = document.getElementById('edit-name').value;
-                project.description = document.getElementById('edit-description').value;
-                project.phase = document.getElementById('edit-phase').value;
-                project.stats.budget = parseInt(document.getElementById('edit-budget').value) || project.stats.budget;
-                project.stats.deadline = document.getElementById('edit-deadline').value || project.stats.deadline;
+                // Get form values
+                const name = document.getElementById('edit-name').value;
+                const description = document.getElementById('edit-description').value;
+                const status = document.getElementById('edit-phase').value;
+                const budget = parseInt(document.getElementById('edit-budget').value) || 0;
+                const deadline = document.getElementById('edit-deadline').value || null;
 
                 // Client data
-                if (!project.client) project.client = {};
-                project.client.name = document.getElementById('edit-client-name').value;
-                project.client.website = document.getElementById('edit-client-website').value;
-                project.client.address = document.getElementById('edit-client-address').value;
-                project.client.fiscalName = document.getElementById('edit-client-fiscal').value;
-                project.client.rfc = document.getElementById('edit-client-rfc').value;
+                const clientName = document.getElementById('edit-client-name').value;
+                const clientWebsite = document.getElementById('edit-client-website').value;
+                const clientAddress = document.getElementById('edit-client-address').value;
+                const clientFiscal = document.getElementById('edit-client-fiscal').value;
+                const clientRfc = document.getElementById('edit-client-rfc').value;
 
                 // URLs
-                if (!project.urls) project.urls = {};
-                project.urls.production = document.getElementById('edit-url-prod').value || null;
-                project.urls.staging = document.getElementById('edit-url-staging').value || null;
-                project.urls.local = document.getElementById('edit-url-local').value || null;
-                project.urls.repository = document.getElementById('edit-url-repo').value || null;
+                const urlProd = document.getElementById('edit-url-prod').value || null;
+                const urlStaging = document.getElementById('edit-url-staging').value || null;
+                const urlLocal = document.getElementById('edit-url-local').value || null;
+                const urlRepo = document.getElementById('edit-url-repo').value || null;
 
-                // Close modal and re-render
-                this.closeEditModal();
-                this.renderProjectDetail(project);
+                // Get auth token
+                const token = localStorage.getItem('dfo_token');
+                if (!token) {
+                    this.showNotification('Error: No autenticado', 'error');
+                    return;
+                }
 
-                // Show success feedback
-                console.log('Project saved:', project);
+                try {
+                    // Update main project fields via API
+                    const projectRes = await fetch(`${API_BASE}/projects/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            name,
+                            description,
+                            status,
+                            budget,
+                            deadline
+                        })
+                    });
+
+                    if (!projectRes.ok) {
+                        throw new Error('Error al actualizar proyecto');
+                    }
+
+                    // Update client info via API
+                    if (clientName) {
+                        await fetch(`${API_BASE}/projects/${id}/client`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                name: clientName,
+                                website: clientWebsite,
+                                address: clientAddress,
+                                fiscal_name: clientFiscal,
+                                rfc: clientRfc
+                            })
+                        });
+                    }
+
+                    // Update local state
+                    project.name = name;
+                    project.description = description;
+                    project.phase = status;
+                    project.stats.budget = budget;
+                    project.stats.deadline = deadline;
+
+                    if (!project.client) project.client = {};
+                    project.client.name = clientName;
+                    project.client.website = clientWebsite;
+                    project.client.address = clientAddress;
+                    project.client.fiscalName = clientFiscal;
+                    project.client.rfc = clientRfc;
+
+                    if (!project.urls) project.urls = {};
+                    project.urls.production = urlProd;
+                    project.urls.staging = urlStaging;
+                    project.urls.local = urlLocal;
+                    project.urls.repository = urlRepo;
+
+                    // Close modal and re-render
+                    this.closeEditModal();
+                    this.renderProjectDetail(project);
+
+                    // Show success feedback
+                    this.showNotification('Proyecto actualizado correctamente', 'success');
+                    console.log('Project saved to API:', { id, name, budget, deadline });
+
+                } catch (error) {
+                    console.error('Error saving project:', error);
+                    this.showNotification('Error al guardar proyecto: ' + error.message, 'error');
+                }
             },
 
             updateOnlineStatus() {
@@ -10104,6 +10174,27 @@
                 this.saveNotifications();
                 this.updateNotificationBadge();
                 this.renderNotificationsList();
+            },
+
+            // Simple notification helper for in-app feedback
+            showNotification(message, type = 'info') {
+                const iconMap = {
+                    success: 'fa-check-circle',
+                    error: 'fa-exclamation-circle',
+                    warning: 'fa-exclamation-triangle',
+                    info: 'fa-info-circle'
+                };
+                const typeMap = {
+                    success: 'project',
+                    error: 'alert',
+                    warning: 'business',
+                    info: 'task'
+                };
+                this.showNotificationToast({
+                    title: type.charAt(0).toUpperCase() + type.slice(1),
+                    message: message,
+                    type: typeMap[type] || 'task'
+                });
             },
 
             showNotificationToast(notif) {
