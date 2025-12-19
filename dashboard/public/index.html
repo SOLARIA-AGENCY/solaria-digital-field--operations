@@ -4307,6 +4307,32 @@
                 return this.request(`/tasks/${taskId}/tags/${tagId}`, {
                     method: 'DELETE'
                 });
+            },
+
+            // Task Items (Checklist) - DFO-043
+            async getTaskItems(taskId) {
+                return this.request(`/tasks/${taskId}/items`);
+            },
+
+            async createTaskItem(taskId, data) {
+                return this.request(`/tasks/${taskId}/items`, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+            },
+
+            async updateTaskItem(taskId, itemId, data) {
+                return this.request(`/tasks/${taskId}/items/${itemId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(data)
+                });
+            },
+
+            async completeTaskItem(taskId, itemId, notes = null, actualMinutes = null) {
+                return this.request(`/tasks/${taskId}/items/${itemId}/complete`, {
+                    method: 'POST',
+                    body: JSON.stringify({ notes, actual_minutes: actualMinutes })
+                });
             }
         };
 
@@ -8466,27 +8492,42 @@
             },
 
             transformTasksFromAPI(apiTasks) {
-                return apiTasks.map(t => ({
-                    id: t.id,
-                    task_code: t.task_code || null, // Preserve task code (DFO-001, AKD-002, etc.)
-                    task_number: t.task_number || null,
-                    title: t.title,
-                    description: t.description || '',
-                    status: this.mapTaskStatus(t.status),
-                    originalStatus: t.status, // Keep original for display
-                    priority: t.priority,
-                    priorityLabel: this.formatPriority(t.priority),
-                    assignee: t.assigned_agent || t.assigned_to || 'Sin asignar',
-                    agent_name: t.agent_name || t.assigned_agent || null,
-                    project_name: t.project_name || null,
-                    project_code: t.project_code || null,
-                    dueDate: t.deadline || t.due_date || '',
-                    createdAt: t.created_at,
-                    progress: t.progress || 0,
-                    estimatedHours: t.estimated_hours || 0,
-                    epic: t.epic || null,
-                    sprint: t.sprint || null
-                }));
+                return apiTasks.map(t => {
+                    // Parse estimated_hours - can be string "16.00", number, or null
+                    const parsedHours = t.estimated_hours
+                        ? (typeof t.estimated_hours === 'string'
+                            ? parseFloat(t.estimated_hours)
+                            : t.estimated_hours)
+                        : 0;
+
+                    // Get assignee name - prioritize agent_name from JOIN, then assigned_agent
+                    const assigneeName = t.agent_name || t.assigned_agent || t.assigned_to || null;
+
+                    return {
+                        id: t.id,
+                        task_code: t.task_code || null, // Preserve task code (DFO-001, AKD-002, etc.)
+                        task_number: t.task_number || null,
+                        title: t.title,
+                        description: t.description || '',
+                        status: this.mapTaskStatus(t.status),
+                        originalStatus: t.status, // Keep original for display
+                        priority: t.priority,
+                        priorityLabel: this.formatPriority(t.priority),
+                        assignee: assigneeName || 'Sin asignar',
+                        agent_name: assigneeName,
+                        assigned_agent_id: t.assigned_agent_id || null,
+                        project_id: t.project_id || null,
+                        project_name: t.project_name || null,
+                        project_code: t.project_code || null,
+                        dueDate: t.deadline || t.due_date || '',
+                        createdAt: t.created_at,
+                        progress: t.progress || 0,
+                        estimatedHours: parsedHours,
+                        epic: t.epic || null,
+                        sprint: t.sprint || null,
+                        items: t.items || [] // Include task items if preloaded
+                    };
+                });
             },
 
             generateMockTasks(project) {
@@ -9144,13 +9185,24 @@
                 alert(`Crear nueva tarea en columna: ${status}\n\n(Esta funcionalidad se conectara con la API)`);
             },
 
-            openTaskModal(taskId) {
+            async openTaskModal(taskId) {
                 // Find task from current tasks or fetch from API
-                const task = this.state.currentTasks?.find(t => t.id === taskId);
+                let task = this.state.currentTasks?.find(t => t.id === taskId);
 
                 if (!task) {
                     console.warn('Task not found:', taskId);
                     return;
+                }
+
+                // Fetch task items (checklist) from API
+                try {
+                    const itemsResponse = await API.getTaskItems(taskId);
+                    if (itemsResponse && itemsResponse.items) {
+                        task = { ...task, items: itemsResponse.items };
+                    }
+                } catch (error) {
+                    console.warn('Could not load task items:', error);
+                    task = { ...task, items: [] };
                 }
 
                 const priorityColors = {
@@ -9185,9 +9237,19 @@
                     year: 'numeric'
                 }) : 'Sin fecha limite';
 
+                // Format estimated hours display
+                const hoursDisplay = task.estimatedHours
+                    ? (Number.isInteger(task.estimatedHours)
+                        ? `${task.estimatedHours}h`
+                        : `${task.estimatedHours.toFixed(1)}h`)
+                    : '0h';
+
+                // Render description with basic markdown support
+                const descriptionHTML = this.renderMarkdownDescription(task.description);
+
                 const modalHTML = `
                     <div class="edit-modal-overlay" id="taskModalOverlay" onclick="App.closeTaskModal(event)">
-                        <div class="edit-modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+                        <div class="edit-modal" onclick="event.stopPropagation()" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
                             <div class="edit-modal-header" style="border-left: 4px solid ${pColor};">
                                 <div>
                                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
@@ -9199,7 +9261,7 @@
                                         </span>
                                         <span style="color: var(--text-muted); font-size: 11px;">${task.task_code || '#' + task.id}</span>
                                     </div>
-                                    <h3 class="edit-modal-title" style="font-size: 16px;">${task.title}</h3>
+                                    <h3 class="edit-modal-title" style="font-size: 16px;">${this.escapeHtml(task.title)}</h3>
                                 </div>
                                 <button class="edit-modal-close" onclick="App.closeTaskModal()">
                                     <i class="fas fa-times"></i>
@@ -9207,14 +9269,14 @@
                             </div>
 
                             <div class="edit-modal-body" style="padding: 20px;">
-                                <!-- Description -->
+                                <!-- Description with Markdown -->
                                 <div class="form-section" style="margin-bottom: 20px;">
                                     <h4 class="form-section-title" style="margin-bottom: 8px;">
                                         <i class="fas fa-align-left" style="color: var(--solaria-orange);"></i> Descripcion
                                     </h4>
-                                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.5;">
-                                        ${task.description || 'Sin descripcion'}
-                                    </p>
+                                    <div class="task-description-content" style="color: var(--text-secondary); font-size: 13px; line-height: 1.6;">
+                                        ${descriptionHTML}
+                                    </div>
                                 </div>
 
                                 <!-- Progress Bar -->
@@ -9349,7 +9411,7 @@
                                         <h4 class="form-section-title" style="margin-bottom: 6px;">
                                             <i class="fas fa-clock" style="color: #fbbf24;"></i> Horas Estimadas
                                         </h4>
-                                        <p style="font-size: 13px;">${task.estimatedHours || 0}h</p>
+                                        <p style="font-size: 13px;">${hoursDisplay}</p>
                                     </div>
 
                                     <div class="form-section">
@@ -10247,6 +10309,58 @@
 
                 // Remove after 5 seconds
                 setTimeout(() => toast.remove(), 5000);
+            },
+
+            // Render markdown description with basic formatting support
+            // Supports: **bold**, *italic*, `code`, - lists, ## headers, checkboxes
+            renderMarkdownDescription(text) {
+                if (!text) return '<span style="color: var(--text-muted); font-style: italic;">Sin descripcion</span>';
+
+                // Escape HTML first for security
+                let html = this.escapeHtml(text);
+
+                // Convert markdown to HTML
+                // Headers (## and ###)
+                html = html.replace(/^### (.+)$/gm, '<h4 style="margin: 12px 0 6px; font-size: 13px; font-weight: 600; color: var(--text-primary);">$1</h4>');
+                html = html.replace(/^## (.+)$/gm, '<h3 style="margin: 16px 0 8px; font-size: 14px; font-weight: 600; color: var(--text-primary);">$1</h3>');
+
+                // Bold and italic
+                html = html.replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight: 600; color: var(--text-primary);">$1</strong>');
+                html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+                // Inline code
+                html = html.replace(/`([^`]+)`/g, '<code style="background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px;">$1</code>');
+
+                // Checkboxes: - [ ] and - [x]
+                html = html.replace(/^- \[x\] (.+)$/gm,
+                    '<div style="display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; padding: 6px 10px; background: rgba(34, 197, 94, 0.1); border-radius: 6px; border-left: 3px solid #22c55e;">' +
+                    '<i class="fas fa-check-square" style="color: #22c55e; margin-top: 2px;"></i>' +
+                    '<span style="text-decoration: line-through; color: var(--text-muted);">$1</span></div>');
+                html = html.replace(/^- \[ \] (.+)$/gm,
+                    '<div style="display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; padding: 6px 10px; background: var(--bg-secondary); border-radius: 6px; border-left: 3px solid var(--border-color);">' +
+                    '<i class="far fa-square" style="color: var(--text-muted); margin-top: 2px;"></i>' +
+                    '<span>$1</span></div>');
+
+                // Regular list items
+                html = html.replace(/^- (.+)$/gm,
+                    '<div style="display: flex; align-items: flex-start; gap: 8px; margin: 3px 0; padding-left: 4px;">' +
+                    '<span style="color: var(--solaria-orange);">•</span><span>$1</span></div>');
+
+                // Numbered lists
+                html = html.replace(/^(\d+)\. (.+)$/gm,
+                    '<div style="display: flex; align-items: flex-start; gap: 8px; margin: 3px 0; padding-left: 4px;">' +
+                    '<span style="color: var(--solaria-orange); font-weight: 600; min-width: 18px;">$1.</span><span>$2</span></div>');
+
+                // Line breaks (convert double newlines to paragraph breaks)
+                html = html.replace(/\n\n/g, '</p><p style="margin: 8px 0;">');
+                html = html.replace(/\n/g, '<br>');
+
+                // Wrap in paragraph if no HTML block elements
+                if (!html.startsWith('<h') && !html.startsWith('<div')) {
+                    html = '<p style="margin: 0;">' + html + '</p>';
+                }
+
+                return html;
             },
 
             escapeHtml(text) {
