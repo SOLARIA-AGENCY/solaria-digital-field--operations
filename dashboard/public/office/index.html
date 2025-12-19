@@ -56,22 +56,28 @@
             --border-color: #e0e0e0;
             --border-light: #d0d0d0;
 
-            /* Semantic Colors */
-            --color-positive: #16a34a;
-            --color-positive-bg: rgba(22, 163, 74, 0.12);
-            --color-negative: #dc2626;
-            --color-negative-bg: rgba(220, 38, 38, 0.12);
+            /* Semantic Colors - Design Hub Linked */
+            --color-positive: #22c55e;
+            --color-positive-bg: rgba(34, 197, 94, 0.12);
+            --color-negative: #ef4444;
+            --color-negative-bg: rgba(239, 68, 68, 0.12);
             --color-neutral: #6b7280;
-            --color-info: #2563eb;
-            --color-info-bg: rgba(37, 99, 235, 0.12);
-            --color-warning: #d97706;
-            --color-warning-bg: rgba(217, 119, 6, 0.12);
+            --color-info: #3b82f6;
+            --color-info-bg: rgba(59, 130, 246, 0.12);
+            --color-warning: #f59e0b;
+            --color-warning-bg: rgba(245, 158, 11, 0.12);
 
             /* Metrics Card Design System */
             --metric-card-bg: var(--bg-card);
             --metric-card-border: var(--border-color);
             --metric-card-radius: 12px;
             --metric-card-padding: 16px;
+            --metric-label-size: 11px;
+            --metric-label-color: var(--text-muted);
+            --metric-value-size: 24px;
+            --metric-value-weight: 700;
+            --metric-change-size: 12px;
+            --metric-divider-color: var(--border-color);
 
             /* Sidebar */
             --sidebar-width: 260px;
@@ -88,6 +94,8 @@
             /* Safe areas for iOS */
             --safe-area-top: env(safe-area-inset-top, 0px);
             --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-area-left: env(safe-area-inset-left, 0px);
+            --safe-area-right: env(safe-area-inset-right, 0px);
         }
 
         /* ============================================
@@ -303,11 +311,12 @@
         }
 
         .sidebar-title {
-            font-size: 15px;
-            font-weight: 700;
+            font-size: 16px;
+            font-weight: 600;
             color: var(--text-primary);
             white-space: nowrap;
             overflow: hidden;
+            opacity: 1;
             transition: opacity var(--transition-fast);
         }
 
@@ -589,8 +598,10 @@
            ============================================ */
         .content-area {
             flex: 1;
-            overflow-y: auto;
             padding: 24px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
             background: var(--bg-primary);
         }
 
@@ -640,9 +651,13 @@
         }
 
         .card-title {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 600;
             color: var(--text-primary);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         /* ============================================
@@ -740,10 +755,11 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 9px;
             font-weight: 600;
+            text-transform: uppercase;
         }
 
         .status-badge.progress {
@@ -795,12 +811,11 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            padding: 0 16px;
-            height: 36px;
+            padding: 10px 20px;
             border: none;
             border-radius: 8px;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
             transition: background var(--transition-fast);
         }
@@ -972,10 +987,14 @@
         }
 
         .priority-badge {
-            font-size: 9px;
-            font-weight: 700;
-            padding: 2px 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
             border-radius: 4px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
         }
 
         /* ============================================
@@ -1117,7 +1136,268 @@
         }
 
         /* ============================================
-           Hidden Utility
+           Design Hub Styles (Copied from DFO)
+           ============================================ */
+        .design-section {
+            margin-bottom: 24px;
+        }
+
+        .design-section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .design-section-title i {
+            color: var(--solaria-orange);
+            font-size: 14px;
+        }
+
+        .design-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .design-grid.cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .design-grid.cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .design-grid.cols-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        @media (max-width: 1024px) {
+            .design-grid.cols-3,
+            .design-grid.cols-4 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .design-grid.cols-2,
+            .design-grid.cols-3,
+            .design-grid.cols-4 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .design-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .design-card h3 {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        /* Progress Segments (Design Hub) */
+        .progress-segments {
+            display: flex;
+            height: 10px;
+            gap: 4px;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .progress-segment {
+            flex: 1;
+            border-radius: 4px;
+            transition: all var(--transition-fast);
+        }
+
+        .progress-segment.planning { background: linear-gradient(90deg, #a855f7, #c084fc); }
+        .progress-segment.development { background: linear-gradient(90deg, #22d3ee, #67e8f9); }
+        .progress-segment.testing { background: linear-gradient(90deg, #14b8a6, #5eead4); }
+        .progress-segment.production { background: linear-gradient(90deg, #22c55e, #4ade80); }
+        .progress-segment.inactive { background: var(--bg-tertiary); }
+
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+        }
+
+        .progress-label-item {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .progress-label-item.completed { color: var(--color-positive); }
+        .progress-label-item.active { color: var(--solaria-orange); font-weight: 600; }
+
+        /* Phase Badges */
+        .progress-phase-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .progress-phase-badge.planning {
+            background: rgba(168, 85, 247, 0.15);
+            color: #a855f7;
+        }
+
+        .progress-phase-badge.development {
+            background: rgba(34, 211, 238, 0.15);
+            color: #22d3ee;
+        }
+
+        .progress-phase-badge.testing {
+            background: rgba(20, 184, 166, 0.15);
+            color: #14b8a6;
+        }
+
+        .progress-phase-badge.production {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+        }
+
+        /* Project Tags */
+        .project-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .project-tag.blue {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+        }
+
+        .project-tag.green {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+        }
+
+        .project-tag.purple {
+            background: rgba(168, 85, 247, 0.15);
+            color: #a855f7;
+        }
+
+        /* Mini Trello (Equalizer) */
+        .mini-trello {
+            display: flex;
+            gap: 16px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .trello-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .trello-label {
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .trello-slots {
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 2px;
+            height: 80px;
+            justify-content: flex-start;
+        }
+
+        .trello-slot {
+            width: 28px;
+            height: 8px;
+            border-radius: 2px;
+            background: transparent;
+            border: 1px dashed var(--border-color);
+        }
+
+        .trello-slot.filled {
+            border: none;
+        }
+
+        .trello-count {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        /* Project Card */
+        .project-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            transition: all var(--transition-fast);
+        }
+
+        .project-card:hover {
+            border-color: var(--solaria-orange);
+        }
+
+        .project-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .project-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--bg-tertiary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--solaria-orange);
+        }
+
+        .project-info {
+            flex: 1;
+        }
+
+        .project-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .project-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* Hidden Utility
            ============================================ */
         .hidden {
             display: none !important;
@@ -1900,27 +2180,226 @@
                     <div class="section-header">
                         <div>
                             <h1 class="section-title">Design Hub</h1>
-                            <p class="section-subtitle">Assets y recursos de diseno por proyecto</p>
+                            <p class="section-subtitle">Componentes UI, tipografias y elementos graficos</p>
                         </div>
                     </div>
+                    <div class="scrollable" style="flex: 1; overflow-y: auto; padding-right: 8px;">
 
-                    <div class="metrics-grid">
-                        ${this.state.projects.slice(0, 6).map(p => `
-                            <div class="card">
-                                <div style="font-weight: 600; margin-bottom: 12px;">${p.name}</div>
-                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                    <span style="font-size: 11px; padding: 4px 10px; border-radius: 6px; background: var(--bg-tertiary); color: var(--text-secondary);">
-                                        <i class="fas fa-palette" style="margin-right: 4px;"></i>Brand
-                                    </span>
-                                    <span style="font-size: 11px; padding: 4px 10px; border-radius: 6px; background: var(--bg-tertiary); color: var(--text-secondary);">
-                                        <i class="fas fa-desktop" style="margin-right: 4px;"></i>UI Kit
-                                    </span>
-                                    <span style="font-size: 11px; padding: 4px 10px; border-radius: 6px; background: var(--bg-tertiary); color: var(--text-secondary);">
-                                        <i class="fas fa-file-alt" style="margin-right: 4px;"></i>Docs
-                                    </span>
+                        <!-- BRAND IDENTITY -->
+                        <div class="design-section">
+                            <h2 class="design-section-title"><i class="fas fa-star"></i> Brand Identity</h2>
+                            <div class="design-grid cols-3">
+                                <div class="design-card">
+                                    <h3>Logo</h3>
+                                    <div style="text-align: center; padding: 20px; background: var(--bg-tertiary); border-radius: 8px;">
+                                        <img src="/solaria-logo.png" alt="SOLARIA Logo" style="width: 80px; height: 80px;">
+                                    </div>
+                                </div>
+                                <div class="design-card">
+                                    <h3>Brand Colors</h3>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <div style="width: 50px; height: 50px; background: #f6921d; border-radius: 8px;" title="SOLARIA Orange"></div>
+                                        <div style="width: 50px; height: 50px; background: #d97706; border-radius: 8px;" title="Orange Dark"></div>
+                                        <div style="width: 50px; height: 50px; background: #f5f5f7; border-radius: 8px; border: 1px solid var(--border-color);" title="Background"></div>
+                                        <div style="width: 50px; height: 50px; background: #ffffff; border-radius: 8px; border: 1px solid var(--border-color);" title="Surface"></div>
+                                    </div>
+                                </div>
+                                <div class="design-card">
+                                    <h3>Phase Colors</h3>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <div style="width: 50px; height: 50px; background: #a855f7; border-radius: 8px;" title="Planning"></div>
+                                        <div style="width: 50px; height: 50px; background: #22d3ee; border-radius: 8px;" title="Development"></div>
+                                        <div style="width: 50px; height: 50px; background: #14b8a6; border-radius: 8px;" title="Testing"></div>
+                                        <div style="width: 50px; height: 50px; background: #22c55e; border-radius: 8px;" title="Production"></div>
+                                    </div>
                                 </div>
                             </div>
-                        `).join('')}
+                        </div>
+
+                        <!-- TYPOGRAPHY -->
+                        <div class="design-section">
+                            <h2 class="design-section-title"><i class="fas fa-font"></i> Typography</h2>
+                            <div class="design-card" style="padding: 20px;">
+                                <div style="margin-bottom: 16px;">
+                                    <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Font Family</span>
+                                    <div style="font-size: 24px; font-weight: 600;">Inter</div>
+                                </div>
+                                <div style="display: grid; gap: 12px;">
+                                    <div><span style="font-size: 32px; font-weight: 700;">Heading H1</span> <span style="color: var(--text-muted); font-size: 12px;">32px / 700</span></div>
+                                    <div><span style="font-size: 24px; font-weight: 600;">Heading H2</span> <span style="color: var(--text-muted); font-size: 12px;">24px / 600</span></div>
+                                    <div><span style="font-size: 18px; font-weight: 600;">Heading H3</span> <span style="color: var(--text-muted); font-size: 12px;">18px / 600</span></div>
+                                    <div><span style="font-size: 14px; font-weight: 500;">Body Text</span> <span style="color: var(--text-muted); font-size: 12px;">14px / 500</span></div>
+                                    <div><span style="font-size: 12px; color: var(--text-muted);">Small / Muted</span> <span style="color: var(--text-muted); font-size: 12px;">12px / 400</span></div>
+                                    <div><span style="font-size: 10px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">LABEL UPPERCASE</span> <span style="color: var(--text-muted); font-size: 12px;">10px / 600 / Uppercase</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAGS -->
+                        <div class="design-section">
+                            <h2 class="design-section-title"><i class="fas fa-tags"></i> Tags / Badges</h2>
+                            <div class="design-card" style="padding: 20px;">
+                                <div style="margin-bottom: 16px;">
+                                    <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: block;">Project Tags (3 Categories)</span>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <span class="project-tag blue">SaaS</span>
+                                        <span class="project-tag blue">Platform</span>
+                                        <span class="project-tag green">React</span>
+                                        <span class="project-tag green">Node.js</span>
+                                        <span class="project-tag purple">Enterprise</span>
+                                        <span class="project-tag purple">B2B</span>
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 16px;">
+                                    <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: block;">Phase Badges</span>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <span class="progress-phase-badge planning">Planificacion</span>
+                                        <span class="progress-phase-badge development">Desarrollo</span>
+                                        <span class="progress-phase-badge testing">Testing</span>
+                                        <span class="progress-phase-badge production">Produccion</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: block;">Status Badges</span>
+                                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <span class="status-badge progress">En Progreso</span>
+                                        <span class="status-badge risk">En Riesgo</span>
+                                        <span class="status-badge paused">Pausado</span>
+                                        <span class="status-badge completed">Completado</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PROGRESS BARS -->
+                        <div class="design-section">
+                            <h2 class="design-section-title"><i class="fas fa-chart-bar"></i> Progress Bars</h2>
+                            <div class="design-card" style="padding: 20px;">
+                                <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; display: block;">Segmented Phase Progress</span>
+                                <div class="progress-segments" style="height: 14px; gap: 6px; margin-bottom: 8px;">
+                                    <div class="progress-segment planning"></div>
+                                    <div class="progress-segment development"></div>
+                                    <div class="progress-segment testing"></div>
+                                    <div class="progress-segment inactive"></div>
+                                </div>
+                                <div class="progress-labels">
+                                    <span class="progress-label-item completed">Planificacion</span>
+                                    <span class="progress-label-item completed">Desarrollo</span>
+                                    <span class="progress-label-item active">Testing</span>
+                                    <span class="progress-label-item">Produccion</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MINI TRELLO -->
+                        <div class="design-section">
+                            <h2 class="design-section-title"><i class="fas fa-columns"></i> Mini Trello (Equalizer)</h2>
+                            <div class="design-card" style="padding: 20px;">
+                                <div class="mini-trello" style="background: transparent;">
+                                    <div class="trello-column">
+                                        <span class="trello-label">BL</span>
+                                        <div class="trello-slots">
+                                            <div class="trello-slot filled" style="background: #64748b;"></div>
+                                            <div class="trello-slot filled" style="background: #64748b;"></div>
+                                            <div class="trello-slot filled" style="background: #64748b;"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                        </div>
+                                        <span class="trello-count">3</span>
+                                    </div>
+                                    <div class="trello-column">
+                                        <span class="trello-label">TD</span>
+                                        <div class="trello-slots">
+                                            <div class="trello-slot filled" style="background: #f59e0b;"></div>
+                                            <div class="trello-slot filled" style="background: #f59e0b;"></div>
+                                            <div class="trello-slot filled" style="background: #f59e0b;"></div>
+                                            <div class="trello-slot filled" style="background: #f59e0b;"></div>
+                                            <div class="trello-slot filled" style="background: #f59e0b;"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                        </div>
+                                        <span class="trello-count">5</span>
+                                    </div>
+                                    <div class="trello-column">
+                                        <span class="trello-label">DO</span>
+                                        <div class="trello-slots">
+                                            <div class="trello-slot filled" style="background: #3b82f6;"></div>
+                                            <div class="trello-slot filled" style="background: #3b82f6;"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                            <div class="trello-slot"></div>
+                                        </div>
+                                        <span class="trello-count">2</span>
+                                    </div>
+                                    <div class="trello-column">
+                                        <span class="trello-label">DN</span>
+                                        <div class="trello-slots">
+                                            <div class="trello-slot filled" style="background: #22c55e;"></div>
+                                            <div class="trello-slot filled" style="background: #22c55e;"></div>
+                                            <div class="trello-slot filled" style="background: #22c55e;"></div>
+                                            <div class="trello-slot filled" style="background: #22c55e;"></div>
+                                            <div class="trello-slot filled" style="background: #22c55e;"></div>
+                                            <div class="trello-slot filled" style="background: #22c55e;"></div>
+                                            <div class="trello-slot filled" style="background: #22c55e;"></div>
+                                            <div class="trello-slot"></div>
+                                        </div>
+                                        <span class="trello-count">7</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CARDS -->
+                        <div class="design-section">
+                            <h2 class="design-section-title"><i class="fas fa-square"></i> Cards</h2>
+                            <div class="design-grid cols-2">
+                                <div class="design-card">
+                                    <h3>Project Card (Mini)</h3>
+                                    <div class="project-card" style="max-width: 280px;">
+                                        <div class="project-card-header">
+                                            <div class="project-icon">
+                                                <i class="fas fa-graduation-cap"></i>
+                                            </div>
+                                            <div class="project-info">
+                                                <h3 class="project-name">Akademate.com</h3>
+                                                <div class="project-tags">
+                                                    <span class="project-tag blue">SaaS</span>
+                                                    <span class="project-tag green">React</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="design-card">
+                                    <h3>Metric Card</h3>
+                                    <div class="card" style="max-width: 200px;">
+                                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;">Total Projects</div>
+                                        <div style="font-size: 28px; font-weight: 700; color: var(--solaria-orange);">12</div>
+                                        <div style="font-size: 11px; color: var(--color-positive); margin-top: 4px;">+3 this month</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BUTTONS -->
+                        <div class="design-section">
+                            <h2 class="design-section-title"><i class="fas fa-hand-pointer"></i> Buttons</h2>
+                            <div class="design-card" style="padding: 20px;">
+                                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                                    <button class="btn btn-primary">Primary Button</button>
+                                    <button class="btn btn-secondary">Secondary Button</button>
+                                    <button class="btn btn-primary" disabled style="opacity: 0.5;">Disabled</button>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             `;
