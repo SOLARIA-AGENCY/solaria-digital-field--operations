@@ -885,6 +885,13 @@
             display: flex;
             align-items: center;
             gap: 16px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border-color: var(--solaria-orange);
         }
 
         .stat-icon {
@@ -5123,6 +5130,18 @@
                 this.loadPageContent(page);
             },
 
+            // Programmatic navigation (for onclick handlers)
+            navigateTo(page) {
+                const navItem = document.querySelector(`[data-page="${page}"]`);
+                if (navItem) {
+                    this.elements.navItems.forEach(nav => nav.classList.remove('active'));
+                    navItem.classList.add('active');
+                }
+                this.state.currentPage = page;
+                history.pushState({ page }, '', `#${page}`);
+                this.loadPageContent(page);
+            },
+
             handleInitialRoute() {
                 const hash = window.location.hash.slice(1) || 'dashboard';
                 const navItem = document.querySelector(`[data-page="${hash}"]`);
@@ -5263,28 +5282,28 @@
 
                     <!-- Stats Row -->
                     <div class="dashboard-stats-row" id="dashboardStats">
-                        <div class="stat-card">
+                        <div class="stat-card" onclick="App.navigateTo('proyectos')" style="cursor: pointer;" title="Ver todos los proyectos">
                             <div class="stat-icon projects"><i class="fas fa-folder-open"></i></div>
                             <div class="stat-content">
                                 <div class="stat-label">Proyectos Activos</div>
                                 <div class="stat-value" id="statProjects">-</div>
                             </div>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card" onclick="App.navigateTo('tareas')" style="cursor: pointer;" title="Ver tareas completadas">
                             <div class="stat-icon tasks"><i class="fas fa-check-circle"></i></div>
                             <div class="stat-content">
                                 <div class="stat-label">Tareas Completadas</div>
                                 <div class="stat-value" id="statCompleted">-</div>
                             </div>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card" onclick="App.navigateTo('tareas')" style="cursor: pointer;" title="Ver tareas en progreso">
                             <div class="stat-icon active"><i class="fas fa-clock"></i></div>
                             <div class="stat-content">
                                 <div class="stat-label">En Progreso</div>
                                 <div class="stat-value" id="statInProgress">-</div>
                             </div>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card" onclick="App.navigateTo('agentes')" style="cursor: pointer;" title="Ver agentes activos">
                             <div class="stat-icon agents"><i class="fas fa-robot"></i></div>
                             <div class="stat-content">
                                 <div class="stat-label">Agentes Activos</div>
@@ -5463,7 +5482,7 @@
             renderCompletedTaskItem(task, isNew = false) {
                 const timeStr = this.formatRelativeTime(task.completed_at || task.updated_at);
                 return `
-                    <div class="completed-task-item ${isNew ? 'new' : ''}">
+                    <div class="completed-task-item ${isNew ? 'new' : ''}" onclick="App.showTaskDetail(${task.id})" style="cursor: pointer;">
                         <div class="task-check-icon">
                             <i class="fas fa-check"></i>
                         </div>
