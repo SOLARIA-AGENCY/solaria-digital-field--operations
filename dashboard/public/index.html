@@ -8559,6 +8559,188 @@
                 `;
             },
 
+            // ============================================
+            // Kanban Real-Time Update Methods
+            // ============================================
+
+            // Map API status to Kanban column
+            getKanbanColumn(status) {
+                const statusToColumn = {
+                    'pending': 'backlog',
+                    'blocked': 'backlog',
+                    'in_progress': 'doing',
+                    'review': 'doing',
+                    'completed': 'done',
+                    'cancelled': 'done'
+                };
+                return statusToColumn[status] || 'todo';
+            },
+
+            // Handle new task created via Socket.IO
+            handleKanbanTaskCreated(data) {
+                // Check if we're in tasks detail view with Kanban
+                const kanbanBoard = document.querySelector('.kanban-board');
+                if (!kanbanBoard) return;
+
+                // Check if this task belongs to the current project view
+                if (this.state.currentProjectId && data.project_id !== this.state.currentProjectId) {
+                    return;
+                }
+
+                // Transform task data
+                const task = this.transformTasksFromAPI([data])[0];
+                if (!task) return;
+
+                // Determine target column
+                const columnKey = this.getKanbanColumn(data.status);
+                const columnBody = kanbanBoard.querySelector(`.kanban-column.${columnKey} .kanban-column-body`);
+                if (!columnBody) return;
+
+                // Create task card HTML
+                const taskCardHtml = this.renderTaskCard(task);
+
+                // Insert before the "Add task" button
+                const addBtn = columnBody.querySelector('.kanban-add-btn');
+                if (addBtn) {
+                    addBtn.insertAdjacentHTML('beforebegin', taskCardHtml);
+                } else {
+                    columnBody.insertAdjacentHTML('beforeend', taskCardHtml);
+                }
+
+                // Update column count
+                const countBadge = kanbanBoard.querySelector(`.kanban-column.${columnKey} .kanban-column-count`);
+                if (countBadge) {
+                    countBadge.textContent = parseInt(countBadge.textContent || '0') + 1;
+                }
+
+                // Add highlight animation
+                const newCard = columnBody.querySelector(`.task-card:last-of-type`);
+                if (newCard) {
+                    newCard.style.animation = 'fadeIn 0.3s ease';
+                    newCard.style.boxShadow = '0 0 0 2px var(--solaria-orange)';
+                    setTimeout(() => {
+                        newCard.style.boxShadow = '';
+                    }, 2000);
+                }
+
+                // Update state
+                if (!this.state.currentTasks) this.state.currentTasks = [];
+                this.state.currentTasks.push(task);
+
+                console.log(`✅ Kanban: Added task ${task.task_code || task.id} to ${columnKey}`);
+            },
+
+            // Handle task updated via Socket.IO
+            handleKanbanTaskUpdated(data) {
+                const kanbanBoard = document.querySelector('.kanban-board');
+                if (!kanbanBoard) return;
+
+                // Find existing card
+                const existingCard = kanbanBoard.querySelector(`.task-card[onclick*="openTaskModal(${data.id})"]`);
+                if (!existingCard) return;
+
+                // Get current and new columns
+                const currentColumn = existingCard.closest('.kanban-column');
+                const newColumnKey = this.getKanbanColumn(data.status);
+                const newColumn = kanbanBoard.querySelector(`.kanban-column.${newColumnKey}`);
+
+                if (!currentColumn || !newColumn) return;
+
+                // If column changed, move the card
+                if (!currentColumn.classList.contains(newColumnKey)) {
+                    // Remove from current column
+                    existingCard.remove();
+
+                    // Update old column count
+                    const oldCount = currentColumn.querySelector('.kanban-column-count');
+                    if (oldCount) {
+                        oldCount.textContent = Math.max(0, parseInt(oldCount.textContent || '1') - 1);
+                    }
+
+                    // Transform and re-render task
+                    const task = this.transformTasksFromAPI([data])[0];
+                    if (task) {
+                        const newCardHtml = this.renderTaskCard(task);
+                        const newColumnBody = newColumn.querySelector('.kanban-column-body');
+                        const addBtn = newColumnBody?.querySelector('.kanban-add-btn');
+
+                        if (addBtn) {
+                            addBtn.insertAdjacentHTML('beforebegin', newCardHtml);
+                        } else if (newColumnBody) {
+                            newColumnBody.insertAdjacentHTML('beforeend', newCardHtml);
+                        }
+
+                        // Update new column count
+                        const newCount = newColumn.querySelector('.kanban-column-count');
+                        if (newCount) {
+                            newCount.textContent = parseInt(newCount.textContent || '0') + 1;
+                        }
+
+                        // Highlight moved card
+                        const movedCard = newColumnBody?.querySelector(`.task-card:last-of-type`);
+                        if (movedCard) {
+                            movedCard.style.animation = 'slideIn 0.3s ease';
+                            movedCard.style.boxShadow = '0 0 0 2px #3b82f6';
+                            setTimeout(() => {
+                                movedCard.style.boxShadow = '';
+                            }, 2000);
+                        }
+                    }
+
+                    console.log(`✅ Kanban: Moved task ${data.id} to ${newColumnKey}`);
+                } else {
+                    // Just update the card content in place
+                    const task = this.transformTasksFromAPI([data])[0];
+                    if (task) {
+                        existingCard.outerHTML = this.renderTaskCard(task);
+                    }
+                    console.log(`✅ Kanban: Updated task ${data.id} in place`);
+                }
+
+                // Update state
+                if (this.state.currentTasks) {
+                    const idx = this.state.currentTasks.findIndex(t => t.id === data.id);
+                    if (idx >= 0) {
+                        this.state.currentTasks[idx] = { ...this.state.currentTasks[idx], ...data };
+                    }
+                }
+            },
+
+            // Handle task deleted via Socket.IO
+            handleKanbanTaskDeleted(data) {
+                const kanbanBoard = document.querySelector('.kanban-board');
+                if (!kanbanBoard) return;
+
+                // Find and remove card
+                const card = kanbanBoard.querySelector(`.task-card[onclick*="openTaskModal(${data.id})"]`);
+                if (!card) return;
+
+                const column = card.closest('.kanban-column');
+
+                // Animate removal
+                card.style.animation = 'fadeOut 0.3s ease';
+                card.style.opacity = '0';
+
+                setTimeout(() => {
+                    card.remove();
+
+                    // Update column count
+                    if (column) {
+                        const count = column.querySelector('.kanban-column-count');
+                        if (count) {
+                            count.textContent = Math.max(0, parseInt(count.textContent || '1') - 1);
+                        }
+                    }
+                }, 300);
+
+                // Update state
+                if (this.state.currentTasks) {
+                    this.state.currentTasks = this.state.currentTasks.filter(t => t.id !== data.id);
+                }
+
+                console.log(`✅ Kanban: Removed task ${data.id}`);
+            },
+
             renderGanttView(tasks) {
                 // Generate weeks for the next 8 weeks
                 const weeks = [];
@@ -9372,6 +9554,7 @@
                 });
 
                 this.socket.on('task_created', (data) => {
+                    console.log('📥 task_created event:', data);
                     this.addNotification({
                         type: 'task',
                         title: 'Nueva tarea creada',
@@ -9380,9 +9563,40 @@
                         taskId: data.id,
                         timestamp: new Date().toISOString()
                     });
+                    // Real-time Kanban update
+                    this.handleKanbanTaskCreated(data);
+                });
+
+                this.socket.on('task_updated', (data) => {
+                    console.log('📥 task_updated event:', data);
+                    this.addNotification({
+                        type: 'task',
+                        title: 'Tarea actualizada',
+                        message: data.title || 'Se actualizo una tarea',
+                        projectId: data.project_id,
+                        taskId: data.id,
+                        timestamp: new Date().toISOString()
+                    });
+                    // Real-time Kanban update
+                    this.handleKanbanTaskUpdated(data);
+                });
+
+                this.socket.on('task_deleted', (data) => {
+                    console.log('📥 task_deleted event:', data);
+                    this.addNotification({
+                        type: 'task',
+                        title: 'Tarea eliminada',
+                        message: `Tarea #${data.id} eliminada`,
+                        projectId: data.project_id,
+                        taskId: data.id,
+                        timestamp: new Date().toISOString()
+                    });
+                    // Real-time Kanban update
+                    this.handleKanbanTaskDeleted(data);
                 });
 
                 this.socket.on('task_completed', (data) => {
+                    console.log('📥 task_completed event:', data);
                     this.addNotification({
                         type: 'task',
                         title: 'Tarea completada',
@@ -9402,6 +9616,8 @@
                         priority: data.priority || 'medium',
                         completed_at: new Date().toISOString()
                     });
+                    // Also update Kanban (move to done column)
+                    this.handleKanbanTaskUpdated({ ...data, status: 'completed' });
                 });
 
                 this.socket.on('project_updated', (data) => {
