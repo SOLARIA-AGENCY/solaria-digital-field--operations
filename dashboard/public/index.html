@@ -5349,6 +5349,9 @@
                 currentTasks: [],
                 tasksView: 'kanban',
                 darkMode: localStorage.getItem('theme') !== 'light',
+                // List view sorting
+                listSortColumn: 'status',
+                listSortDirection: 'asc',
                 // Notifications state
                 notifications: JSON.parse(localStorage.getItem('dfo_notifications') || '[]'),
                 notificationsPanelOpen: false,
@@ -6325,34 +6328,6 @@
                 }
             },
 
-            getSortedProjects() {
-                const sortBy = this.state.sortBy || 'name';
-                const phaseOrder = { planning: 1, development: 2, testing: 3, production: 4 };
-
-                return [...PROJECTS_DATA].sort((a, b) => {
-                    switch (sortBy) {
-                        case 'name':
-                            return a.name.localeCompare(b.name);
-                        case 'deadline':
-                            return new Date(a.stats.deadline) - new Date(b.stats.deadline);
-                        case 'budget':
-                            return b.stats.budget - a.stats.budget;
-                        case 'completion':
-                            const compA = a.stats.completed / a.stats.tasks;
-                            const compB = b.stats.completed / b.stats.tasks;
-                            return compB - compA;
-                        case 'phase':
-                            return phaseOrder[b.phase] - phaseOrder[a.phase];
-                        case 'type':
-                            return a.tags[0].label.localeCompare(b.tags[0].label);
-                        case 'tasks':
-                            return b.stats.tasks - a.stats.tasks;
-                        default:
-                            return 0;
-                    }
-                });
-            },
-
             setSortBy(sortBy) {
                 this.state.sortBy = sortBy;
                 localStorage.setItem('projectsSortBy', sortBy);
@@ -6403,22 +6378,158 @@
             renderProjectsList() {
                 const container = document.getElementById('projectsContainer');
                 const sortedProjects = this.getSortedProjects();
+
+                const { projectsSortColumn = 'name', projectsSortDirection = 'asc' } = this.state;
+
+                const getSortClass = (column) => {
+                    if (projectsSortColumn !== column) return 'sortable';
+                    return projectsSortDirection === 'asc' ? 'sortable sorted-asc' : 'sortable sorted-desc';
+                };
+
+                // Phase colors
+                const phaseColors = {
+                    planning: '#6d28d9',
+                    development: '#0891b2',
+                    testing: '#0d9488',
+                    production: '#16a34a'
+                };
+
                 container.innerHTML = `
-                    <div class="list-header">
-                        <span class="list-header-col" style="grid-area: header;">PROYECTO</span>
-                        <span class="list-header-col" style="grid-area: tags;">TIPO</span>
-                        <span class="list-header-col" style="grid-area: progress;">FASE</span>
-                        <span class="list-header-col" style="grid-area: tasks;">TAR</span>
-                        <span class="list-header-col" style="grid-area: pend;">PEN</span>
-                        <span class="list-header-col" style="grid-area: done;">OK</span>
-                        <span class="list-header-col" style="grid-area: budget;">$$$</span>
-                        <span class="list-header-col" style="grid-area: client;">CLIENTE</span>
-                        <span class="list-header-col" style="grid-area: date;">ENTREGA</span>
-                    </div>
-                    <div class="scrollable" style="flex: 1; overflow-y: auto; padding-right: 8px;">
-                        ${sortedProjects.map(p => this.renderProjectCard(p, 'compact')).join('')}
+                    <div class="project-card" style="padding: 0; overflow: hidden;">
+                        <table class="list-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 22%;" class="${getSortClass('name')}" onclick="App.sortProjectsList('name')">Proyecto</th>
+                                    <th style="width: 12%;" class="${getSortClass('phase')}" onclick="App.sortProjectsList('phase')">Fase</th>
+                                    <th style="width: 8%;" class="${getSortClass('tasks')}" onclick="App.sortProjectsList('tasks')">Tareas</th>
+                                    <th style="width: 8%;" class="${getSortClass('pending')}" onclick="App.sortProjectsList('pending')">Pend.</th>
+                                    <th style="width: 8%;" class="${getSortClass('completed')}" onclick="App.sortProjectsList('completed')">Compl.</th>
+                                    <th style="width: 10%;" class="${getSortClass('budget')}" onclick="App.sortProjectsList('budget')">Budget</th>
+                                    <th style="width: 16%;" class="${getSortClass('client')}" onclick="App.sortProjectsList('client')">Cliente</th>
+                                    <th style="width: 16%;" class="${getSortClass('deadline')}" onclick="App.sortProjectsList('deadline')">Entrega</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sortedProjects.map(p => {
+                                    const phaseInfo = PROJECT_PHASES[p.phase];
+                                    const pColor = phaseColors[p.phase] || '#6b7280';
+                                    const budgetStr = p.stats.budget >= 1000 ? `$${(p.stats.budget / 1000).toFixed(0)}K` : `$${p.stats.budget}`;
+                                    const deadline = new Date(p.stats.deadline);
+                                    const deadlineStr = deadline.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' });
+                                    const displayTags = p.tags.slice(0, 2);
+
+                                    return `
+                                        <tr onclick="App.openProject(${p.id})" style="cursor: pointer;">
+                                            <td>
+                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                    <div style="width: 32px; height: 32px; border-radius: 8px; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                                        <i class="fas ${p.icon}" style="font-size: 14px; color: var(--solaria-orange);"></i>
+                                                    </div>
+                                                    <div style="min-width: 0;">
+                                                        <div style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.name}</div>
+                                                        <div style="display: flex; gap: 4px; margin-top: 2px;">
+                                                            ${displayTags.map(t => `<span class="project-tag ${t.color}" style="font-size: 8px; padding: 1px 6px;">${t.label}</span>`).join('')}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span style="background: ${pColor}20; color: ${pColor}; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap;">
+                                                    ${phaseInfo.label}
+                                                </span>
+                                            </td>
+                                            <td style="text-align: center;">
+                                                <span style="font-weight: 600; color: var(--color-info);">${p.stats.tasks}</span>
+                                            </td>
+                                            <td style="text-align: center;">
+                                                <span style="font-weight: 600; color: var(--color-warning);">${p.stats.pending}</span>
+                                            </td>
+                                            <td style="text-align: center;">
+                                                <span style="font-weight: 600; color: var(--color-positive);">${p.stats.completed}</span>
+                                            </td>
+                                            <td style="text-align: center;">
+                                                <span style="font-weight: 600; color: var(--solaria-orange);">${budgetStr}</span>
+                                            </td>
+                                            <td>
+                                                <span style="font-size: 12px; color: #a855f7;">${p.stats.client || '-'}</span>
+                                            </td>
+                                            <td>
+                                                <span style="font-size: 12px; color: #818cf8;">${deadlineStr}</span>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
                     </div>
                 `;
+            },
+
+            sortProjectsList(column) {
+                // Initialize if not exists
+                if (!this.state.projectsSortColumn) {
+                    this.state.projectsSortColumn = 'name';
+                    this.state.projectsSortDirection = 'asc';
+                }
+
+                // Toggle direction if same column, otherwise set to asc
+                if (this.state.projectsSortColumn === column) {
+                    this.state.projectsSortDirection = this.state.projectsSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.state.projectsSortColumn = column;
+                    this.state.projectsSortDirection = 'asc';
+                }
+
+                // Re-render projects list
+                this.renderProjectsList();
+            },
+
+            getSortedProjects() {
+                // Support both dropdown sorting (sortBy) and column header sorting (projectsSortColumn)
+                const sortBy = this.state.projectsSortColumn || this.state.sortBy || 'name';
+                const direction = this.state.projectsSortDirection || 'asc';
+                const phaseOrder = { planning: 0, development: 1, testing: 2, production: 3 };
+
+                return [...PROJECTS_DATA].sort((a, b) => {
+                    let comparison = 0;
+
+                    switch (sortBy) {
+                        case 'name':
+                            comparison = a.name.localeCompare(b.name);
+                            break;
+                        case 'phase':
+                            comparison = (phaseOrder[a.phase] || 0) - (phaseOrder[b.phase] || 0);
+                            break;
+                        case 'tasks':
+                            comparison = (a.stats.tasks || 0) - (b.stats.tasks || 0);
+                            break;
+                        case 'pending':
+                            comparison = (a.stats.pending || 0) - (b.stats.pending || 0);
+                            break;
+                        case 'completed':
+                        case 'completion':
+                            comparison = (a.stats.completed || 0) - (b.stats.completed || 0);
+                            break;
+                        case 'budget':
+                            comparison = (a.stats.budget || 0) - (b.stats.budget || 0);
+                            break;
+                        case 'client':
+                            comparison = (a.stats.client || '').localeCompare(b.stats.client || '');
+                            break;
+                        case 'deadline':
+                            const dateA = a.stats.deadline ? new Date(a.stats.deadline).getTime() : 0;
+                            const dateB = b.stats.deadline ? new Date(b.stats.deadline).getTime() : 0;
+                            comparison = dateA - dateB;
+                            break;
+                        case 'type':
+                            comparison = (a.tags[0]?.label || '').localeCompare(b.tags[0]?.label || '');
+                            break;
+                        default:
+                            comparison = 0;
+                    }
+
+                    return direction === 'asc' ? comparison : -comparison;
+                });
             },
 
             renderProjectCard(project, mode = 'grid') {
@@ -9866,6 +9977,20 @@
             },
 
             renderGanttView(tasks) {
+                // Empty state - show when no tasks at all
+                if (!tasks || tasks.length === 0) {
+                    return `
+                        <div class="project-card" style="padding: 60px 40px; text-align: center;">
+                            <i class="fas fa-chart-gantt" style="font-size: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
+                            <h3 style="color: var(--text-primary); margin-bottom: 8px;">No hay tareas</h3>
+                            <p style="color: var(--text-muted); margin-bottom: 20px;">Este proyecto aún no tiene tareas creadas.</p>
+                            <button class="btn-primary" onclick="App.createNewTask()">
+                                <i class="fas fa-plus"></i> Crear Primera Tarea
+                            </button>
+                        </div>
+                    `;
+                }
+
                 // Generate weeks for the next 8 weeks
                 const weeks = [];
                 const today = new Date();
@@ -9888,7 +10013,7 @@
                     critical: '#ef4444'
                 };
 
-                // Filter and sort tasks for Gantt
+                // Filter and sort tasks for Gantt (exclude completed)
                 const ganttTasks = tasks
                     .filter(t => t.status !== 'done')
                     .sort((a, b) => {
@@ -9896,6 +10021,25 @@
                         return (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
                     })
                     .slice(0, 15);
+
+                // If all tasks are done, show message
+                if (ganttTasks.length === 0) {
+                    return `
+                        <div class="gantt-container" style="background: var(--bg-secondary); border-radius: 12px; padding: 16px;">
+                            <div class="gantt-header" style="padding-left: 250px;">
+                                ${weeks.map(w => `<div class="gantt-header-cell">${w.label}</div>`).join('')}
+                            </div>
+                            <div style="text-align: center; padding: 60px 40px;">
+                                <i class="fas fa-check-circle" style="font-size: 48px; color: #22c55e; margin-bottom: 16px;"></i>
+                                <h3 style="color: var(--text-primary); margin-bottom: 8px;">¡Todas las tareas completadas!</h3>
+                                <p style="color: var(--text-muted); margin-bottom: 20px;">No hay tareas pendientes para mostrar en el Gantt.</p>
+                                <button class="btn-primary" onclick="App.createNewTask()">
+                                    <i class="fas fa-plus"></i> Crear Nueva Tarea
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
 
                 return `
                     <div class="gantt-container" style="background: var(--bg-secondary); border-radius: 12px; padding: 16px;">
@@ -9932,15 +10076,59 @@
                                 `;
                             }).join('')}
                         </div>
-                        ${ganttTasks.length === 0 ? '<div style="text-align: center; padding: 40px; color: var(--text-muted);">No hay tareas pendientes para mostrar en el Gantt</div>' : ''}
                     </div>
                 `;
             },
 
             renderListView(tasks) {
+                // Empty state
+                if (!tasks || tasks.length === 0) {
+                    return `
+                        <div class="project-card" style="padding: 60px 40px; text-align: center;">
+                            <i class="fas fa-clipboard-list" style="font-size: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
+                            <h3 style="color: var(--text-primary); margin-bottom: 8px;">No hay tareas</h3>
+                            <p style="color: var(--text-muted); margin-bottom: 20px;">Este proyecto aún no tiene tareas creadas.</p>
+                            <button class="btn-primary" onclick="App.createNewTask()">
+                                <i class="fas fa-plus"></i> Crear Primera Tarea
+                            </button>
+                        </div>
+                    `;
+                }
+
+                const { listSortColumn, listSortDirection } = this.state;
+
+                // Sort tasks based on current sort state
                 const sortedTasks = [...tasks].sort((a, b) => {
-                    const statusOrder = { doing: 0, todo: 1, backlog: 2, done: 3 };
-                    return statusOrder[a.status] - statusOrder[b.status];
+                    let comparison = 0;
+
+                    switch (listSortColumn) {
+                        case 'title':
+                            comparison = (a.title || '').localeCompare(b.title || '');
+                            break;
+                        case 'status':
+                            const statusOrder = { doing: 0, todo: 1, backlog: 2, done: 3 };
+                            comparison = (statusOrder[a.status] || 2) - (statusOrder[b.status] || 2);
+                            break;
+                        case 'priority':
+                            const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+                            comparison = (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
+                            break;
+                        case 'progress':
+                            comparison = (a.progress || 0) - (b.progress || 0);
+                            break;
+                        case 'assignee':
+                            comparison = (a.assignee || '').localeCompare(b.assignee || '');
+                            break;
+                        case 'date':
+                            const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+                            const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+                            comparison = dateA - dateB;
+                            break;
+                        default:
+                            comparison = 0;
+                    }
+
+                    return listSortDirection === 'asc' ? comparison : -comparison;
                 });
 
                 const priorityColors = {
@@ -9950,17 +10138,22 @@
                     critical: '#ef4444'
                 };
 
+                const getSortClass = (column) => {
+                    if (listSortColumn !== column) return 'sortable';
+                    return listSortDirection === 'asc' ? 'sortable sorted-asc' : 'sortable sorted-desc';
+                };
+
                 return `
                     <div class="project-card" style="padding: 0; overflow: hidden;">
                         <table class="list-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 35%;">Tarea</th>
-                                    <th style="width: 12%;">Estado</th>
-                                    <th style="width: 10%;">Prioridad</th>
-                                    <th style="width: 10%;">Progreso</th>
-                                    <th style="width: 18%;">Asignado</th>
-                                    <th style="width: 15%;">Fecha</th>
+                                    <th style="width: 35%;" class="${getSortClass('title')}" onclick="App.sortListView('title')">Tarea</th>
+                                    <th style="width: 12%;" class="${getSortClass('status')}" onclick="App.sortListView('status')">Estado</th>
+                                    <th style="width: 10%;" class="${getSortClass('priority')}" onclick="App.sortListView('priority')">Prioridad</th>
+                                    <th style="width: 10%;" class="${getSortClass('progress')}" onclick="App.sortListView('progress')">Progreso</th>
+                                    <th style="width: 18%;" class="${getSortClass('assignee')}" onclick="App.sortListView('assignee')">Asignado</th>
+                                    <th style="width: 15%;" class="${getSortClass('date')}" onclick="App.sortListView('date')">Fecha</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -9972,7 +10165,7 @@
                                     const dueStr = task.dueDate ? new Date(task.dueDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : '-';
 
                                     return `
-                                        <tr onclick="App.openTaskModal(${task.id})" style="cursor: pointer;">
+                                        <tr onclick="App.openTaskModal(${task.id})" style="cursor: pointer;" data-task-id="${task.id}">
                                             <td>
                                                 <div style="font-weight: 500;">${task.title}</div>
                                                 <div style="font-size: 11px; color: var(--text-muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${task.description || ''}</div>
@@ -9996,7 +10189,7 @@
                                                     <span style="font-size: 10px; color: var(--text-muted);">${task.progress || 0}%</span>
                                                 </div>
                                             </td>
-                                            <td style="font-size: 12px;">${task.assignee}</td>
+                                            <td style="font-size: 12px;">${task.assignee || '-'}</td>
                                             <td style="font-size: 12px;">${dueStr}</td>
                                         </tr>
                                     `;
@@ -10005,6 +10198,23 @@
                         </table>
                     </div>
                 `;
+            },
+
+            sortListView(column) {
+                // Toggle direction if same column, otherwise set to asc
+                if (this.state.listSortColumn === column) {
+                    this.state.listSortDirection = this.state.listSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.state.listSortColumn = column;
+                    this.state.listSortDirection = 'asc';
+                }
+
+                // Re-render list view with new sort
+                const project = this.state.currentProject;
+                const tasks = this.state.currentTasks;
+                if (project && tasks) {
+                    this.renderTasksDetailPage(project, tasks);
+                }
             },
 
             switchTasksView(view) {
