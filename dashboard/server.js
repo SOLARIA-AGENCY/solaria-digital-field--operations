@@ -3185,13 +3185,13 @@ class SolariaDashboardServer {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `, [
                 title,
-                description,
+                description ?? null,
                 effectiveProjectId,
                 agent_id ?? null,
                 taskNumber,
-                priority,
+                priority ?? 'medium',
                 estimated_hours ?? null,
-                status
+                status ?? 'pending'
             ]);
 
             // Get project code for response

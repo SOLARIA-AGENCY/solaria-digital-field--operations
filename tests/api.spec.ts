@@ -5,7 +5,7 @@
 
 import { test, expect, request as playwrightRequest, APIRequestContext } from '@playwright/test';
 
-const apiBase = process.env.DASHBOARD_API_URL || 'http://localhost:3030/api';
+const apiBase = process.env.DASHBOARD_API_URL || (process.env.DFO_BASE_URL ? `${process.env.DFO_BASE_URL}/api` : 'http://localhost:3030/api');
 const user = process.env.DASHBOARD_USER || 'carlosjperez';
 const pass = process.env.DASHBOARD_PASS || 'bypass';
 

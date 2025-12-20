@@ -10,8 +10,8 @@ import { test, expect, request as playwrightRequest } from '@playwright/test';
  * - DFO-044: Description markdown rendering
  */
 
-const apiBase = process.env.DASHBOARD_API_URL || 'http://localhost:3030/api';
 const baseURL = process.env.DFO_BASE_URL || 'http://localhost:3030';
+const apiBase = process.env.DASHBOARD_API_URL || `${baseURL}/api`;
 const user = process.env.DASHBOARD_USER || 'carlosjperez';
 const pass = process.env.DASHBOARD_PASS || 'bypass';
 

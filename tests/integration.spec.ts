@@ -5,7 +5,7 @@
 
 import { test, expect, request as playwrightRequest, APIRequestContext } from '@playwright/test';
 
-const apiBase = process.env.DASHBOARD_API_URL || 'http://localhost:3030/api';
+const apiBase = process.env.DASHBOARD_API_URL || (process.env.DFO_BASE_URL ? `${process.env.DFO_BASE_URL}/api` : 'http://localhost:3030/api');
 const user = process.env.DASHBOARD_USER || 'carlosjperez';
 const pass = process.env.DASHBOARD_PASS || 'bypass';
 
@@ -173,16 +173,18 @@ test.describe('Dashboard Data Consistency', () => {
     });
     const dashboard = await dashRes.json();
 
-    // Counts should match (or be close if dashboard caches)
-    expect(dashboard.overview).toBeDefined();
+    // CEO dashboard returns { kpis, executiveSummary, ... } not overview
+    expect(dashboard.kpis).toBeDefined();
   });
 
   test('task count matches between list and dashboard', async () => {
     const listRes = await apiContext.get(`${apiBase}/tasks`, {
       headers: { Authorization: `Bearer ${authToken}` }
     });
-    const tasks = await listRes.json();
-    expect(Array.isArray(tasks)).toBe(true);
+    const response = await listRes.json();
+    // Tasks API returns { tasks: [...], pagination: {...} }
+    expect(response.tasks).toBeDefined();
+    expect(Array.isArray(response.tasks)).toBe(true);
   });
 });
 
