@@ -630,7 +630,7 @@ class SolariaDashboardServer {
                     (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'blocked') as blocked_tasks
                 FROM projects p
                 ORDER BY p.updated_at DESC
-                LIMIT 50
+                LIMIT 200
             `);
             res.json({ projects });
         } catch (error) {
