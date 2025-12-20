@@ -8276,21 +8276,21 @@
                             <i class="fas fa-tasks" style="color: #60a5fa;"></i> TAREAS
                             <i class="fas fa-chevron-right" style="float: right; color: var(--text-muted); font-size: 10px;"></i>
                         </h4>
-                        <div class="tasks-summary" style="grid-template-columns: repeat(4, 1fr);">
+                        <div class="tasks-summary" id="projectTasksSummary" style="grid-template-columns: repeat(4, 1fr);">
                             <div class="tasks-summary-item">
-                                <div class="tasks-summary-value" style="color: #60a5fa;">${stats.tasks}</div>
+                                <div class="tasks-summary-value" id="projectStatTotal" style="color: #60a5fa;">${stats.tasks}</div>
                                 <div class="tasks-summary-label">Total</div>
                             </div>
                             <div class="tasks-summary-item">
-                                <div class="tasks-summary-value" style="color: #fbbf24;">${stats.pending}</div>
+                                <div class="tasks-summary-value" id="projectStatPending" style="color: #fbbf24;">${stats.pending}</div>
                                 <div class="tasks-summary-label">Pend</div>
                             </div>
                             <div class="tasks-summary-item">
-                                <div class="tasks-summary-value" style="color: #3b82f6;">${stats.inProgress || 0}</div>
+                                <div class="tasks-summary-value" id="projectStatDoing" style="color: #3b82f6;">${stats.inProgress || 0}</div>
                                 <div class="tasks-summary-label">Doing</div>
                             </div>
                             <div class="tasks-summary-item">
-                                <div class="tasks-summary-value" style="color: #4ade80;">${stats.completed}</div>
+                                <div class="tasks-summary-value" id="projectStatDone" style="color: #4ade80;">${stats.completed}</div>
                                 <div class="tasks-summary-label">Done</div>
                             </div>
                         </div>
@@ -9837,12 +9837,13 @@
                     else if (status === 'completed') project.stats.completed = Math.max(0, (project.stats.completed || 0) - 1);
                 }
 
-                // Re-render project detail if currently viewing this project
-                if (this.state.currentProjectId === projectId && this.state.currentProject) {
+                // Update current project state if viewing this project
+                if (this.state.currentProjectId === projectId) {
                     this.state.currentProject = project;
-                    // Update just the tasks card to avoid full re-render
-                    this.updateProjectDetailTasksCard(project);
                 }
+
+                // Always try to update the project detail tasks card (will no-op if not on page)
+                this.updateProjectDetailTasksCard(project);
 
                 // Also update project cards in the projects list view
                 this.updateProjectListCard(project);
@@ -9890,30 +9891,46 @@
 
             // Update the tasks card in project detail view
             updateProjectDetailTasksCard(project) {
-                const tasksCard = document.querySelector('.clickable-card[onclick*="openTasksDetail"]');
-                if (!tasksCard) return;
-
                 const stats = project.stats || {};
                 const board = project.board || { backlog: 0, todo: 0, doing: 0, done: 0 };
 
-                // Update summary values
-                const summaryItems = tasksCard.querySelectorAll('.tasks-summary-value');
-                if (summaryItems.length >= 4) {
-                    summaryItems[0].textContent = stats.tasks || 0;
-                    summaryItems[1].textContent = stats.pending || 0;
-                    summaryItems[2].textContent = stats.inProgress || 0;
-                    summaryItems[3].textContent = stats.completed || 0;
+                // Update summary values by ID (more reliable)
+                const totalEl = document.getElementById('projectStatTotal');
+                const pendingEl = document.getElementById('projectStatPending');
+                const doingEl = document.getElementById('projectStatDoing');
+                const doneEl = document.getElementById('projectStatDone');
+
+                if (totalEl) totalEl.textContent = stats.tasks || 0;
+                if (pendingEl) pendingEl.textContent = stats.pending || 0;
+                if (doingEl) doingEl.textContent = stats.inProgress || 0;
+                if (doneEl) doneEl.textContent = stats.completed || 0;
+
+                // Update mini-trello board
+                const tasksCard = document.querySelector('.clickable-card[onclick*="openTasksDetail"]');
+                if (tasksCard) {
+                    const trelloColumns = tasksCard.querySelectorAll('.trello-column');
+                    if (trelloColumns.length >= 4) {
+                        const columns = ['backlog', 'todo', 'doing', 'done'];
+                        trelloColumns.forEach((col, idx) => {
+                            const count = board[columns[idx]] || 0;
+                            const slots = col.querySelectorAll('.trello-slot');
+                            slots.forEach((slot, i) => {
+                                if (i < count) slot.classList.add('filled');
+                                else slot.classList.remove('filled');
+                            });
+                        });
+                    }
+
+                    // Flash animation for visual feedback
+                    tasksCard.style.animation = 'pulse 0.5s ease';
+                    tasksCard.style.boxShadow = '0 0 0 2px var(--solaria-orange)';
+                    setTimeout(() => {
+                        tasksCard.style.animation = '';
+                        tasksCard.style.boxShadow = '';
+                    }, 500);
                 }
 
-                // Flash animation for visual feedback
-                tasksCard.style.animation = 'pulse 0.5s ease';
-                tasksCard.style.boxShadow = '0 0 0 2px var(--solaria-orange)';
-                setTimeout(() => {
-                    tasksCard.style.animation = '';
-                    tasksCard.style.boxShadow = '';
-                }, 500);
-
-                console.log('✅ Project detail tasks card updated');
+                console.log('✅ Project detail tasks card updated:', stats);
             },
 
             // Update task count badges in view headers
@@ -11543,10 +11560,11 @@
 
                 this.socket.on('task_created', (data) => {
                     console.log('📥 task_created event:', data);
+                    const taskCode = data.task_code || `TASK-${data.id}`;
                     this.addNotification({
                         type: 'task',
-                        title: 'Nueva tarea creada',
-                        message: `${data.task_code || 'TASK-' + data.id}: ${data.title || 'Nueva tarea'}`,
+                        title: `✨ ${taskCode}: Nueva tarea`,
+                        message: data.title || 'Sin título',
                         projectId: data.project_id,
                         taskId: data.id,
                         timestamp: new Date().toISOString()
@@ -11557,10 +11575,11 @@
 
                 this.socket.on('task_updated', (data) => {
                     console.log('📥 task_updated event:', data);
+                    const taskCode = data.task_code || `TASK-${data.task_id || data.id}`;
                     this.addNotification({
                         type: 'task',
-                        title: 'Tarea actualizada',
-                        message: `${data.task_code || 'TASK-' + (data.task_id || data.id)}: ${data.title || 'Tarea actualizada'}`,
+                        title: `🔄 ${taskCode}: Actualizada`,
+                        message: data.title || 'Sin título',
                         projectId: data.project_id,
                         taskId: data.task_id || data.id,
                         timestamp: new Date().toISOString()
@@ -11571,10 +11590,11 @@
 
                 this.socket.on('task_deleted', (data) => {
                     console.log('📥 task_deleted event:', data);
+                    const taskCode = data.task_code || `TASK-${data.task_id || data.id}`;
                     this.addNotification({
                         type: 'task',
-                        title: 'Tarea eliminada',
-                        message: `${data.task_code || 'TASK-' + (data.task_id || data.id)}: ${data.title || 'Tarea eliminada'}`,
+                        title: `🗑️ ${taskCode}: Eliminada`,
+                        message: data.title || 'Sin título',
                         projectId: data.project_id,
                         taskId: data.task_id || data.id,
                         timestamp: new Date().toISOString()
@@ -11585,10 +11605,11 @@
 
                 this.socket.on('task_completed', (data) => {
                     console.log('📥 task_completed event:', data);
+                    const taskCode = data.task_code || `TASK-${data.id}`;
                     this.addNotification({
                         type: 'task',
-                        title: 'Tarea completada',
-                        message: `${data.task_code || 'TASK-' + data.id}: ${data.title || 'Tarea completada'}`,
+                        title: `✅ ${taskCode}: Completada`,
+                        message: data.title || 'Sin título',
                         projectId: data.project_id,
                         taskId: data.id,
                         timestamp: new Date().toISOString()
