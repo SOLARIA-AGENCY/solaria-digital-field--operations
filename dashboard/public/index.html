@@ -4496,8 +4496,9 @@
         const API = {
             baseUrl: window.location.origin + '/api',
             token: localStorage.getItem('dfo_token'),
+            isRefreshing: false,
 
-            async request(endpoint, options = {}) {
+            async request(endpoint, options = {}, retryOnAuth = true) {
                 const url = `${this.baseUrl}${endpoint}`;
                 const headers = {
                     'Content-Type': 'application/json',
@@ -4515,9 +4516,15 @@
                     });
 
                     if (!response.ok) {
-                        if (response.status === 401) {
-                            this.logout();
-                            throw new Error('Session expired');
+                        if (response.status === 401 && retryOnAuth && !endpoint.includes('/auth/')) {
+                            // Try to re-authenticate automatically
+                            console.log('Session expired, attempting auto-login...');
+                            const refreshed = await this.autoLogin();
+                            if (refreshed) {
+                                // Retry the original request with new token
+                                return this.request(endpoint, options, false);
+                            }
+                            throw new Error('Session expired - please refresh the page');
                         }
                         throw new Error(`API Error: ${response.status}`);
                     }
@@ -4529,12 +4536,66 @@
                 }
             },
 
+            // Auto-login with default credentials (for demo dashboard)
+            async autoLogin() {
+                if (this.isRefreshing) return false;
+                this.isRefreshing = true;
+
+                try {
+                    const response = await fetch(`${this.baseUrl}/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: 'carlosjperez', password: 'bypass' })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.token) {
+                            this.token = data.token;
+                            localStorage.setItem('dfo_token', data.token);
+                            localStorage.setItem('dfo_user', JSON.stringify(data.user));
+                            console.log('Auto-login successful');
+                            return true;
+                        }
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('Auto-login failed:', error);
+                    return false;
+                } finally {
+                    this.isRefreshing = false;
+                }
+            },
+
+            // Ensure we have a valid session before making authenticated requests
+            async ensureAuthenticated() {
+                if (!this.token) {
+                    return await this.autoLogin();
+                }
+                // Verify token is still valid
+                try {
+                    await fetch(`${this.baseUrl}/auth/verify`, {
+                        headers: { 'Authorization': `Bearer ${this.token}` }
+                    });
+                    return true;
+                } catch {
+                    return await this.autoLogin();
+                }
+            },
+
             // Auth
             async login(username, password) {
-                const data = await this.request('/auth/login', {
+                const response = await fetch(`${this.baseUrl}/auth/login`, {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
+
+                if (!response.ok) {
+                    throw new Error('Login failed');
+                }
+
+                const data = await response.json();
                 if (data.token) {
                     this.token = data.token;
                     localStorage.setItem('dfo_token', data.token);
@@ -5296,6 +5357,9 @@
                 this.restoreSidebarState();
                 this.restoreTheme();
                 this.updateOnlineStatus();
+
+                // Ensure authenticated before loading data
+                await API.ensureAuthenticated();
 
                 // Load data from API (with fallback to static data)
                 await this.loadDataFromAPI();

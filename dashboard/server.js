@@ -1827,15 +1827,15 @@ class SolariaDashboardServer {
                     priority, estimated_hours, deadline, assigned_by
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
-                title,
-                description,
+                title || 'Nueva tarea',
+                description ?? null,
                 project_id ?? null,
                 agentId ?? null,
                 taskNumber,
-                priority,
+                priority || 'medium',
                 estimated_hours ?? null,
                 deadline ?? null,
-                req.user.userId
+                req.user?.userId ?? null
             ]);
 
             // Get project code for response
