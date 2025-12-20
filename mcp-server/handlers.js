@@ -219,6 +219,17 @@ export const toolDefinitions = [
       required: ["task_id"],
     },
   },
+  {
+    name: "delete_task",
+    description: "Permanently delete a task and all its associated items (subtasks, tags). Use with caution.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task_id: { type: "number", description: "Task ID to delete" },
+      },
+      required: ["task_id"],
+    },
+  },
 
   // Task Items (Subtasks/Checklist) Tools
   {
@@ -1010,6 +1021,13 @@ export async function executeTool(name, args, apiCall, context = {}) {
           progress: 100,
           completion_notes: args.completion_notes,
         }),
+      });
+
+    case "delete_task":
+      // ISOLATION: Validate task belongs to project
+      await validateTaskProject(args.task_id);
+      return apiCall(`/tasks/${args.task_id}`, {
+        method: "DELETE",
       });
 
     // Task Items (Subtasks/Checklist)

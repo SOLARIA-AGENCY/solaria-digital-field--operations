@@ -195,6 +195,7 @@ class SolariaDashboardServer {
         this.app.get('/api/tasks/:id', this.getTask.bind(this));
         this.app.post('/api/tasks', this.createTask.bind(this));
         this.app.put('/api/tasks/:id', this.updateTask.bind(this));
+        this.app.delete('/api/tasks/:id', this.deleteTask.bind(this));
 
         // Task Items (Subtasks/Checklist)
         this.app.get('/api/tasks/:id/items', this.getTaskItems.bind(this));
@@ -1944,6 +1945,50 @@ class SolariaDashboardServer {
         } catch (error) {
             console.error('Update task error:', error);
             res.status(500).json({ error: 'Failed to update task' });
+        }
+    }
+
+    /**
+     * DELETE /api/tasks/:id - Delete a task
+     * Also deletes associated task_items and task_tags
+     */
+    async deleteTask(req, res) {
+        try {
+            const { id } = req.params;
+
+            // Check if task exists first
+            const [existing] = await this.db.execute('SELECT id, title, project_id FROM tasks WHERE id = ?', [id]);
+            if (existing.length === 0) {
+                return res.status(404).json({ error: 'Task not found' });
+            }
+
+            const task = existing[0];
+
+            // Delete associated task_items first (foreign key constraint)
+            await this.db.execute('DELETE FROM task_items WHERE task_id = ?', [id]);
+
+            // Delete associated task_tags
+            await this.db.execute('DELETE FROM task_tags WHERE task_id = ?', [id]);
+
+            // Delete the task
+            const [result] = await this.db.execute('DELETE FROM tasks WHERE id = ?', [id]);
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: 'Task not found' });
+            }
+
+            // Emit WebSocket notification
+            this.io.to('notifications').emit('task_deleted', {
+                id: parseInt(id),
+                title: task.title,
+                project_id: task.project_id
+            });
+
+            res.json({ message: 'Task deleted successfully', deleted_id: parseInt(id) });
+
+        } catch (error) {
+            console.error('Delete task error:', error);
+            res.status(500).json({ error: 'Failed to delete task' });
         }
     }
 
