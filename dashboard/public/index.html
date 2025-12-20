@@ -8658,33 +8658,33 @@
                                 <i class="fas fa-building" style="font-size: 24px; color: var(--solaria-orange);"></i>
                             </div>
                             <div style="flex: 1; min-width: 0;">
-                                <div style="font-size: 18px; font-weight: 700; color: var(--text-primary);">${client.name}</div>
-                                ${client.fiscalName ? `<div style="font-size: 12px; color: var(--text-secondary);">${client.fiscalName}</div>` : ''}
-                                ${client.rfc ? `<div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">RFC: ${client.rfc}</div>` : ''}
+                                <div style="font-size: 18px; font-weight: 700; color: var(--text-primary);">${this.escapeHtml(client.name)}</div>
+                                ${client.fiscalName ? `<div style="font-size: 12px; color: var(--text-secondary);">${this.escapeHtml(client.fiscalName)}</div>` : ''}
+                                ${client.rfc ? `<div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">RFC: ${this.escapeHtml(client.rfc)}</div>` : ''}
                             </div>
-                            ${client.website ? `<a href="${client.website}" target="_blank" style="padding: 8px 12px; background: var(--bg-tertiary); border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 12px; display: flex; align-items: center; gap: 6px;"><i class="fas fa-external-link-alt"></i> Web</a>` : ''}
+                            ${client.website ? `<a href="${this.sanitizeUrl(client.website)}" target="_blank" style="padding: 8px 12px; background: var(--bg-tertiary); border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 12px; display: flex; align-items: center; gap: 6px;"><i class="fas fa-external-link-alt"></i> Web</a>` : ''}
                         </div>
 
                         <div class="ficha-client-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                             ${client.contactName ? `
                             <div class="ficha-field" style="padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
                                 <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Contacto</div>
-                                <div style="font-size: 13px; font-weight: 500; color: var(--text-primary);">${client.contactName}</div>
+                                <div style="font-size: 13px; font-weight: 500; color: var(--text-primary);">${this.escapeHtml(client.contactName)}</div>
                             </div>` : ''}
                             ${client.contactEmail ? `
                             <div class="ficha-field" style="padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
                                 <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Email</div>
-                                <a href="mailto:${client.contactEmail}" style="font-size: 13px; color: #3b82f6; text-decoration: none;">${client.contactEmail}</a>
+                                <a href="${this.sanitizeUrl('mailto:' + client.contactEmail)}" style="font-size: 13px; color: #3b82f6; text-decoration: none;">${this.escapeHtml(client.contactEmail)}</a>
                             </div>` : ''}
                             ${client.contactPhone ? `
                             <div class="ficha-field" style="padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
                                 <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Telefono</div>
-                                <a href="tel:${client.contactPhone}" style="font-size: 13px; color: #3b82f6; text-decoration: none;">${client.contactPhone}</a>
+                                <a href="${this.sanitizeUrl('tel:' + client.contactPhone)}" style="font-size: 13px; color: #3b82f6; text-decoration: none;">${this.escapeHtml(client.contactPhone)}</a>
                             </div>` : ''}
                             ${client.address ? `
                             <div class="ficha-field" style="padding: 12px; background: var(--bg-tertiary); border-radius: 8px;">
                                 <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Direccion</div>
-                                <div style="font-size: 12px; color: var(--text-secondary);">${client.address}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">${this.escapeHtml(client.address)}</div>
                             </div>` : ''}
                         </div>
                     </div>
@@ -8710,12 +8710,12 @@
                                 const typeInfo = docTypeIcons[doc.type] || { icon: 'fa-file', color: '#6b7280', label: 'Documento' };
                                 const dateStr = doc.date ? new Date(doc.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
                                 return `
-                                    <a href="${doc.url}" target="_blank" class="ficha-doc-item" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-tertiary); border-radius: 8px; text-decoration: none; transition: background 0.15s;">
+                                    <a href="${this.sanitizeUrl(doc.url)}" target="_blank" class="ficha-doc-item" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-tertiary); border-radius: 8px; text-decoration: none; transition: background 0.15s;">
                                         <div style="width: 36px; height: 36px; border-radius: 8px; background: ${typeInfo.color}20; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                                             <i class="fas ${typeInfo.icon}" style="color: ${typeInfo.color}; font-size: 14px;"></i>
                                         </div>
                                         <div style="flex: 1; min-width: 0;">
-                                            <div style="font-size: 13px; font-weight: 500; color: var(--text-primary);">${doc.name}</div>
+                                            <div style="font-size: 13px; font-weight: 500; color: var(--text-primary);">${this.escapeHtml(doc.name)}</div>
                                             <div style="font-size: 10px; color: var(--text-muted);">${typeInfo.label}${dateStr ? ' • ' + dateStr : ''}</div>
                                         </div>
                                         <i class="fas fa-download" style="color: var(--text-muted); font-size: 12px;"></i>
@@ -11746,6 +11746,20 @@
                 const div = document.createElement('div');
                 div.textContent = text;
                 return div.innerHTML;
+            },
+
+            // Sanitize URLs to prevent javascript: and other malicious schemes
+            sanitizeUrl(url) {
+                if (!url || url === '#') return '#';
+                try {
+                    const parsed = new URL(url, window.location.origin);
+                    if (['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)) {
+                        return parsed.href;
+                    }
+                } catch (e) {
+                    // Invalid URL
+                }
+                return '#';
             }
         };
 

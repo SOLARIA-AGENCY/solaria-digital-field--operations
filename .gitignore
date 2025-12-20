@@ -7,3 +7,4 @@ test-results/
 backups/
 
 .backups/
+dashboard/public/office-backup-*/
