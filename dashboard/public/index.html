@@ -2591,6 +2591,11 @@
             100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(246, 146, 29, 0); }
         }
 
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
         .edit-modal-header {
             padding: 20px 24px;
             border-bottom: 1px solid var(--border-color);
@@ -9776,8 +9781,8 @@
                     this.handleGanttTaskDeleted(data);
                 }
 
-                // Update dashboard widgets
-                this.handleDashboardWidgetsUpdate(data, action);
+                // Update dashboard widgets (pass oldStatus for status change tracking)
+                this.handleDashboardWidgetsUpdate(data, action, oldStatus);
 
                 // Update project stats and detail view (NEW)
                 this.handleProjectStatsUpdate(data, action, oldStatus);
@@ -10113,25 +10118,159 @@
                 `;
             },
 
-            // DASHBOARD WIDGETS HANDLER
-            handleDashboardWidgetsUpdate(data, action) {
-                // Update KPIs card if on dashboard
-                const kpiTasks = document.querySelector('.metric-value[data-metric="tasks"]');
-                if (kpiTasks) {
-                    const current = parseInt(kpiTasks.textContent) || 0;
-                    if (action === 'create') kpiTasks.textContent = current + 1;
-                    if (action === 'delete') kpiTasks.textContent = Math.max(0, current - 1);
+            // DASHBOARD WIDGETS HANDLER - Comprehensive real-time updates
+            handleDashboardWidgetsUpdate(data, action, oldStatus) {
+                console.log(`🔄 Dashboard widgets update: ${action}`, data);
+
+                // 1. UPDATE HEADER STAT CARDS (#statCompleted, #statInProgress)
+                const statCompleted = document.getElementById('statCompleted');
+                const statInProgress = document.getElementById('statInProgress');
+
+                if (action === 'create') {
+                    // New task is created as 'pending' - doesn't affect completed/inProgress
+                } else if (action === 'update') {
+                    // Status change: update counters based on transition
+                    const newStatus = data.status;
+                    if (oldStatus && newStatus && oldStatus !== newStatus) {
+                        // Decrement old status counter
+                        if (oldStatus === 'completed' && statCompleted) {
+                            statCompleted.textContent = Math.max(0, parseInt(statCompleted.textContent) - 1);
+                        } else if (oldStatus === 'in_progress' && statInProgress) {
+                            statInProgress.textContent = Math.max(0, parseInt(statInProgress.textContent) - 1);
+                        }
+                        // Increment new status counter
+                        if (newStatus === 'completed' && statCompleted) {
+                            statCompleted.textContent = parseInt(statCompleted.textContent) + 1;
+                            this.flashElement(statCompleted, 'positive');
+                        } else if (newStatus === 'in_progress' && statInProgress) {
+                            statInProgress.textContent = parseInt(statInProgress.textContent) + 1;
+                            this.flashElement(statInProgress, 'info');
+                        }
+                    }
+                } else if (action === 'complete') {
+                    // Task marked complete
+                    if (statCompleted) {
+                        statCompleted.textContent = parseInt(statCompleted.textContent) + 1;
+                        this.flashElement(statCompleted, 'positive');
+                    }
+                    if (statInProgress) {
+                        statInProgress.textContent = Math.max(0, parseInt(statInProgress.textContent) - 1);
+                    }
+                } else if (action === 'delete') {
+                    // Task deleted - decrement based on its status
+                    const status = data.status;
+                    if (status === 'completed' && statCompleted) {
+                        statCompleted.textContent = Math.max(0, parseInt(statCompleted.textContent) - 1);
+                    } else if (status === 'in_progress' && statInProgress) {
+                        statInProgress.textContent = Math.max(0, parseInt(statInProgress.textContent) - 1);
+                    }
                 }
 
-                // Update project cards progress if visible
+                // 2. UPDATE "NUEVAS TAREAS POR PROYECTO" WIDGET
+                const newTasksCount = document.getElementById('newTasksCount');
+                const newTasksFeed = document.getElementById('newTasksByProjectFeed');
+
+                if (action === 'create' && newTasksFeed && newTasksCount) {
+                    // Update count badge
+                    const currentCount = parseInt(newTasksCount.textContent) || 0;
+                    newTasksCount.textContent = currentCount + 1;
+                    this.flashElement(newTasksCount, 'positive');
+
+                    // Add new task to feed (prepend at top)
+                    const projectName = data.project_name || PROJECTS_DATA?.find(p => p.id === data.project_id)?.name || 'Proyecto';
+                    const newTaskItem = document.createElement('div');
+                    newTaskItem.className = 'feed-item fade-in';
+                    newTaskItem.setAttribute('data-task-id', data.id);
+                    newTaskItem.style.animation = 'slideIn 0.3s ease-out';
+                    newTaskItem.innerHTML = `
+                        <div class="feed-project-info">
+                            <i class="fas fa-tasks" style="color: var(--solaria-orange);"></i>
+                            <span class="feed-project-name">${projectName}</span>
+                        </div>
+                        <div class="feed-task-title" onclick="App.openTaskModal(${data.id})" style="cursor: pointer;">
+                            <strong>${data.task_code || 'NEW'}</strong> - ${data.title || 'Nueva tarea'}
+                        </div>
+                        <div class="feed-task-meta">
+                            <span class="badge badge-pending">Pendiente</span>
+                            <span style="color: var(--text-muted); font-size: 10px;">Ahora</span>
+                        </div>
+                    `;
+
+                    // Remove loading placeholder if present
+                    const loadingPlaceholder = newTasksFeed.querySelector('.feed-loading');
+                    if (loadingPlaceholder) {
+                        loadingPlaceholder.remove();
+                    }
+
+                    // Remove empty state if present
+                    const emptyState = newTasksFeed.querySelector('.feed-empty');
+                    if (emptyState) {
+                        emptyState.remove();
+                    }
+
+                    // Prepend new task
+                    newTasksFeed.insertBefore(newTaskItem, newTasksFeed.firstChild);
+
+                    // Keep max 10 items
+                    const items = newTasksFeed.querySelectorAll('.feed-item');
+                    if (items.length > 10) {
+                        items[items.length - 1].remove();
+                    }
+                } else if (action === 'delete' && newTasksFeed) {
+                    // Remove task from feed if present
+                    const taskItem = newTasksFeed.querySelector(`[data-task-id="${data.id}"], [data-task-id="${data.task_id}"]`);
+                    if (taskItem) {
+                        taskItem.style.animation = 'slideOut 0.3s ease-out';
+                        setTimeout(() => taskItem.remove(), 300);
+                        // Update count
+                        if (newTasksCount) {
+                            const currentCount = parseInt(newTasksCount.textContent) || 0;
+                            newTasksCount.textContent = Math.max(0, currentCount - 1);
+                        }
+                    }
+                }
+
+                // 3. UPDATE PROJECT CARDS (flash and update metrics)
                 const projectCard = document.querySelector(`.project-card[data-project-id="${data.project_id}"]`);
                 if (projectCard) {
-                    // Refresh project card via API would be overkill, just flash it
+                    // Flash the card border
                     projectCard.style.boxShadow = '0 0 0 2px var(--solaria-orange)';
+                    projectCard.style.transition = 'box-shadow 0.3s ease';
                     setTimeout(() => { projectCard.style.boxShadow = ''; }, 1500);
+
+                    // Update task counts if visible in card
+                    const metricValues = projectCard.querySelectorAll('.metric-value');
+                    if (metricValues.length >= 2 && action === 'create') {
+                        // First metric is usually total tasks
+                        const tasksValue = metricValues[0];
+                        if (tasksValue) {
+                            const current = parseInt(tasksValue.textContent) || 0;
+                            tasksValue.textContent = current + 1;
+                            this.flashElement(tasksValue, 'info');
+                        }
+                    }
                 }
 
-                console.log(`✅ Dashboard: Widgets notified of ${action}`);
+                console.log(`✅ Dashboard widgets updated for ${action}`);
+            },
+
+            // Helper to flash an element with color feedback
+            flashElement(element, type = 'positive') {
+                if (!element) return;
+                const colors = {
+                    positive: '#22c55e',
+                    negative: '#ef4444',
+                    warning: '#f59e0b',
+                    info: '#3b82f6'
+                };
+                const originalColor = element.style.color;
+                element.style.color = colors[type] || colors.positive;
+                element.style.transform = 'scale(1.2)';
+                element.style.transition = 'all 0.3s ease';
+                setTimeout(() => {
+                    element.style.color = originalColor;
+                    element.style.transform = 'scale(1)';
+                }, 800);
             },
 
             renderGanttView(tasks) {
