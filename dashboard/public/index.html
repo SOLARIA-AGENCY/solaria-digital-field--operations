@@ -9291,25 +9291,25 @@
                         </div>
                     </div>
 
-                    <!-- Summary Row (compact for Kanban) -->
-                    <div class="metrics-row compact" style="margin-bottom: 12px; flex-shrink: 0;">
+                    <!-- Summary Row (compact for Kanban) - IDs for real-time sync -->
+                    <div class="metrics-row compact" id="tasksSummaryRow" style="margin-bottom: 12px; flex-shrink: 0;">
                         <div class="metric-cell">
-                            <div class="metric-value" style="font-size: 16px; color: #64748b;">${tasksByStatus.backlog.length}</div>
+                            <div class="metric-value" id="summaryBacklog" style="font-size: 16px; color: #64748b;">${tasksByStatus.backlog.length}</div>
                             <div class="metric-label" style="font-size: 9px;">Backlog</div>
                         </div>
                         <div class="metric-divider"></div>
                         <div class="metric-cell">
-                            <div class="metric-value" style="font-size: 16px; color: #f59e0b;">${tasksByStatus.todo.length}</div>
+                            <div class="metric-value" id="summaryTodo" style="font-size: 16px; color: #f59e0b;">${tasksByStatus.todo.length}</div>
                             <div class="metric-label" style="font-size: 9px;">Por Hacer</div>
                         </div>
                         <div class="metric-divider"></div>
                         <div class="metric-cell">
-                            <div class="metric-value" style="font-size: 16px; color: #3b82f6;">${tasksByStatus.doing.length}</div>
+                            <div class="metric-value" id="summaryDoing" style="font-size: 16px; color: #3b82f6;">${tasksByStatus.doing.length}</div>
                             <div class="metric-label" style="font-size: 9px;">En Progreso</div>
                         </div>
                         <div class="metric-divider"></div>
                         <div class="metric-cell">
-                            <div class="metric-value" style="font-size: 16px; color: #22c55e;">${tasksByStatus.done.length}</div>
+                            <div class="metric-value" id="summaryDone" style="font-size: 16px; color: #22c55e;">${tasksByStatus.done.length}</div>
                             <div class="metric-label" style="font-size: 9px;">Completadas</div>
                         </div>
                     </div>
@@ -9933,27 +9933,57 @@
                 console.log('✅ Project detail tasks card updated:', stats);
             },
 
-            // Update task count badges in view headers
+            // Update ALL task count badges - SINGLE SOURCE OF TRUTH (DFO-053)
             handleTaskCountBadgesUpdate() {
                 const tasks = this.state.currentTasks || [];
-                const pending = tasks.filter(t => t.status === 'pending' || t.status === 'todo' || t.status === 'backlog').length;
-                const inProgress = tasks.filter(t => t.status === 'in_progress' || t.status === 'doing').length;
-                const completed = tasks.filter(t => t.status === 'completed' || t.status === 'done').length;
+
+                // Count by Kanban status (after mapTaskStatus transformation)
+                const counts = {
+                    backlog: tasks.filter(t => t.status === 'backlog').length,
+                    todo: tasks.filter(t => t.status === 'todo').length,
+                    doing: tasks.filter(t => t.status === 'doing').length,
+                    done: tasks.filter(t => t.status === 'done').length
+                };
                 const total = tasks.length;
 
-                // Update any task count badges in the current view
+                // 1. Update Summary Row metrics (top counters)
+                const summaryBacklog = document.getElementById('summaryBacklog');
+                const summaryTodo = document.getElementById('summaryTodo');
+                const summaryDoing = document.getElementById('summaryDoing');
+                const summaryDone = document.getElementById('summaryDone');
+
+                if (summaryBacklog) summaryBacklog.textContent = counts.backlog;
+                if (summaryTodo) summaryTodo.textContent = counts.todo;
+                if (summaryDoing) summaryDoing.textContent = counts.doing;
+                if (summaryDone) summaryDone.textContent = counts.done;
+
+                // 2. Update Kanban column badges (sync with summary)
+                const columns = ['backlog', 'todo', 'doing', 'done'];
+                columns.forEach(col => {
+                    const badge = document.querySelector(`.kanban-column.${col} .kanban-column-count`);
+                    if (badge) badge.textContent = counts[col];
+                });
+
+                // 3. Update header subtitle
+                const headerSubtitle = document.querySelector('.section-subtitle');
+                if (headerSubtitle && headerSubtitle.textContent.includes('tarea')) {
+                    headerSubtitle.textContent = `${total} tareas en total`;
+                }
+
+                // 4. Update any generic task count badges
                 const countBadge = document.querySelector('.tasks-count-badge, [data-tasks-count]');
                 if (countBadge) {
                     countBadge.textContent = total;
                 }
 
-                // Update header subtitle if showing task counts
-                const headerSubtitle = document.querySelector('.section-subtitle');
-                if (headerSubtitle && headerSubtitle.textContent.includes('tarea')) {
-                    headerSubtitle.textContent = `${total} tareas (${pending} pendientes, ${inProgress} en progreso, ${completed} completadas)`;
+                // 5. Flash animation on summary row to indicate update
+                const summaryRow = document.getElementById('tasksSummaryRow');
+                if (summaryRow) {
+                    summaryRow.style.animation = 'pulse 0.4s ease';
+                    setTimeout(() => { summaryRow.style.animation = ''; }, 400);
                 }
 
-                console.log(`✅ Task count badges updated: ${total} total`);
+                console.log(`✅ Task counters synced: BL=${counts.backlog} TD=${counts.todo} DO=${counts.doing} DN=${counts.done} (Total: ${total})`);
             },
 
             // LIST VIEW HANDLERS
