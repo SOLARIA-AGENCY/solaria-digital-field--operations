@@ -1851,14 +1851,19 @@ class SolariaDashboardServer {
                 }
             }
 
-            // Emit task_created notification
+            // Emit task_created notification with complete data for Kanban
             this.io.to('notifications').emit('task_created', {
                 id: result.insertId,
                 task_code: taskCode,
                 task_number: taskNumber,
-                title,
-                project_id,
-                priority
+                title: title || 'Nueva tarea',
+                description: description || '',
+                project_id: project_id || null,
+                assigned_agent_id: agentId || null,
+                priority: priority || 'medium',
+                status: 'pending',
+                progress: 0,
+                created_at: new Date().toISOString()
             });
 
             res.status(201).json({
@@ -1917,6 +1922,13 @@ class SolariaDashboardServer {
             if (result.affectedRows === 0) {
                 return res.status(404).json({ error: 'Task not found' });
             }
+
+            // Emit task_updated for real-time Kanban/list updates
+            this.io.to('notifications').emit('task_updated', {
+                task_id: parseInt(id),
+                ...updates,
+                updated_at: new Date().toISOString()
+            });
 
             // Emit task_completed notification if status changed to completed
             if (updates.status === 'completed') {
