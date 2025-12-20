@@ -10038,48 +10038,44 @@
                                     <strong style="color: var(--text-primary);">${projectName}</strong>
                                 </div>
                                 <div class="form-group" style="margin-bottom: 16px;">
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px;">
+                                    <label class="form-label">
                                         Titulo <span style="color: #ef4444;">*</span>
                                     </label>
                                     <input type="text" id="newTaskTitle" placeholder="Ej: Implementar autenticacion OAuth..."
-                                        class="edit-input"
+                                        class="form-input" style="width: 100%;"
                                         onkeydown="if(event.key === 'Enter') App.submitNewTask()">
                                 </div>
                                 <div class="form-group" style="margin-bottom: 16px;">
-                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px;">
-                                        Descripcion
-                                    </label>
+                                    <label class="form-label">Descripcion</label>
                                     <textarea id="newTaskDescription" placeholder="Descripcion detallada de la tarea..." rows="3"
-                                        class="edit-input" style="resize: vertical; min-height: 80px;"></textarea>
+                                        class="form-textarea" style="width: 100%;"></textarea>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div class="form-grid">
                                     <div class="form-group">
-                                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px;">
-                                            <i class="fas fa-flag" style="margin-right: 6px; color: var(--text-muted);"></i>Prioridad
+                                        <label class="form-label">
+                                            <i class="fas fa-flag" style="margin-right: 6px;"></i>Prioridad
                                         </label>
-                                        <select id="newTaskPriority" class="edit-input">
-                                            <option value="low">🟢 Baja</option>
-                                            <option value="medium" selected>🔵 Media</option>
-                                            <option value="high">🟠 Alta</option>
-                                            <option value="critical">🔴 Critica</option>
+                                        <select id="newTaskPriority" class="form-select" style="width: 100%;">
+                                            <option value="low">Baja</option>
+                                            <option value="medium" selected>Media</option>
+                                            <option value="high">Alta</option>
+                                            <option value="critical">Critica</option>
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px;">
-                                            <i class="fas fa-clock" style="margin-right: 6px; color: var(--text-muted);"></i>Horas Est.
+                                        <label class="form-label">
+                                            <i class="fas fa-clock" style="margin-right: 6px;"></i>Horas Est.
                                         </label>
                                         <input type="number" id="newTaskHours" placeholder="8" min="0" step="0.5"
-                                            class="edit-input">
+                                            class="form-input" style="width: 100%;">
                                     </div>
                                 </div>
                                 <input type="hidden" id="newTaskStatus" value="${status}">
                                 <input type="hidden" id="newTaskProjectId" value="${projectId}">
                             </div>
                             <div class="edit-modal-footer">
-                                <button class="edit-btn-secondary" onclick="App.closeCreateTaskModal(event, true)">
-                                    <i class="fas fa-times"></i> Cancelar
-                                </button>
-                                <button class="edit-btn-primary" onclick="App.submitNewTask()">
+                                <button class="btn-secondary" onclick="App.closeCreateTaskModal(event, true)">Cancelar</button>
+                                <button class="btn-primary" onclick="App.submitNewTask()">
                                     <i class="fas fa-plus"></i> Crear Tarea
                                 </button>
                             </div>
