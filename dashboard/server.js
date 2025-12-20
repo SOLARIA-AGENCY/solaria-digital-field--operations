@@ -1923,9 +1923,27 @@ class SolariaDashboardServer {
                 return res.status(404).json({ error: 'Task not found' });
             }
 
-            // Emit task_updated for real-time Kanban/list updates
+            // Fetch task data for rich WebSocket notification (includes task_code, title)
+            const [taskDataForEmit] = await this.db.execute(`
+                SELECT t.id, t.task_number, t.title, t.status, t.priority, t.progress, t.project_id,
+                       p.code as project_code, p.name as project_name
+                FROM tasks t
+                LEFT JOIN projects p ON t.project_id = p.id
+                WHERE t.id = ?
+            `, [id]);
+            const taskForEmit = taskDataForEmit[0] || {};
+            const taskCode = taskForEmit.project_code && taskForEmit.task_number
+                ? `${taskForEmit.project_code}-${String(taskForEmit.task_number).padStart(3, '0')}`
+                : `TASK-${id}`;
+
+            // Emit task_updated for real-time Kanban/list updates (with task_code!)
             this.io.to('notifications').emit('task_updated', {
                 task_id: parseInt(id),
+                id: parseInt(id),
+                task_code: taskCode,
+                title: taskForEmit.title || updates.title,
+                project_id: taskForEmit.project_id,
+                project_name: taskForEmit.project_name,
                 ...updates,
                 updated_at: new Date().toISOString()
             });

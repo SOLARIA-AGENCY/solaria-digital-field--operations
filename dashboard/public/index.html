@@ -9999,7 +9999,7 @@
                 return `
                     <tr data-task-id="${task.id}" onclick="App.openTaskModal(${task.id})" style="cursor: pointer;">
                         <td>
-                            <div style="font-weight: 500;">${task.title}</div>
+                            <div style="font-weight: 500;">${task.task_code ? `<span style="color: var(--solaria-orange); font-weight: 600; margin-right: 6px;">${task.task_code}</span>` : ''}${task.title}</div>
                             <div style="font-size: 11px; color: var(--text-muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${task.description || ''}</div>
                         </td>
                         <td>
@@ -10107,7 +10107,7 @@
                     <div class="gantt-row" data-task-id="${task.id}" onclick="App.openTaskModal(${task.id})" style="cursor: pointer;">
                         <div class="gantt-row-label" style="display: flex; align-items: center; gap: 8px;">
                             <span style="background: ${pColor}20; color: ${pColor}; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700;">${pLabel}</span>
-                            <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${task.title}</span>
+                            <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${task.task_code ? `<span style="color: var(--solaria-orange); font-weight: 600; margin-right: 4px;">${task.task_code}</span>` : ''}${task.title}</span>
                         </div>
                         <div class="gantt-row-bars">
                             <div class="gantt-bar" style="left: ${leftPercent}%; width: ${widthPercent}%; background: ${pColor}; opacity: 0.85; border-radius: 4px;">
@@ -11546,7 +11546,7 @@
                     this.addNotification({
                         type: 'task',
                         title: 'Nueva tarea creada',
-                        message: data.title || 'Se creo una nueva tarea',
+                        message: `${data.task_code || 'TASK-' + data.id}: ${data.title || 'Nueva tarea'}`,
                         projectId: data.project_id,
                         taskId: data.id,
                         timestamp: new Date().toISOString()
@@ -11560,9 +11560,9 @@
                     this.addNotification({
                         type: 'task',
                         title: 'Tarea actualizada',
-                        message: data.title || 'Se actualizo una tarea',
+                        message: `${data.task_code || 'TASK-' + (data.task_id || data.id)}: ${data.title || 'Tarea actualizada'}`,
                         projectId: data.project_id,
-                        taskId: data.id,
+                        taskId: data.task_id || data.id,
                         timestamp: new Date().toISOString()
                     });
                     // Real-time update ALL views (Kanban, List, Gantt, Widgets)
@@ -11574,9 +11574,9 @@
                     this.addNotification({
                         type: 'task',
                         title: 'Tarea eliminada',
-                        message: `Tarea #${data.id} eliminada`,
+                        message: `${data.task_code || 'TASK-' + (data.task_id || data.id)}: ${data.title || 'Tarea eliminada'}`,
                         projectId: data.project_id,
-                        taskId: data.id,
+                        taskId: data.task_id || data.id,
                         timestamp: new Date().toISOString()
                     });
                     // Real-time update ALL views (Kanban, List, Gantt, Widgets)
@@ -11588,7 +11588,7 @@
                     this.addNotification({
                         type: 'task',
                         title: 'Tarea completada',
-                        message: data.title || 'Se completo una tarea',
+                        message: `${data.task_code || 'TASK-' + data.id}: ${data.title || 'Tarea completada'}`,
                         projectId: data.project_id,
                         taskId: data.id,
                         timestamp: new Date().toISOString()
