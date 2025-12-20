@@ -693,6 +693,31 @@ class SolariaDashboardServer {
             query += ` ORDER BY ${sortColumn} ${sortDirection} LIMIT ${parseInt(limit)}`;
 
             const [tasks] = await this.db.execute(query, params);
+
+            // Fetch tags for all tasks in a single query
+            if (tasks.length > 0) {
+                const taskIds = tasks.map(t => t.id);
+                const placeholders = taskIds.map(() => '?').join(',');
+                const [tagRows] = await this.db.execute(`
+                    SELECT tta.task_id, tt.id, tt.name, tt.color, tt.icon
+                    FROM task_tag_assignments tta
+                    JOIN task_tags tt ON tta.tag_id = tt.id
+                    WHERE tta.task_id IN (${placeholders})
+                `, taskIds);
+
+                // Group tags by task_id
+                const tagsByTask = {};
+                for (const row of tagRows) {
+                    if (!tagsByTask[row.task_id]) tagsByTask[row.task_id] = [];
+                    tagsByTask[row.task_id].push({ id: row.id, name: row.name, color: row.color, icon: row.icon });
+                }
+
+                // Attach tags to each task
+                for (const task of tasks) {
+                    task.tags = tagsByTask[task.id] || [];
+                }
+            }
+
             res.json({ tasks });
         } catch (error) {
             console.error('Error fetching public tasks:', error);

@@ -4567,6 +4567,28 @@
                     method: 'POST',
                     body: JSON.stringify({ notes, actual_minutes: actualMinutes })
                 });
+            },
+
+            // Toggle task item completion (DFO-046)
+            async toggleTaskItemComplete(taskId, itemId) {
+                return this.request(`/tasks/${taskId}/items/${itemId}/complete`, {
+                    method: 'PUT'
+                });
+            },
+
+            // Create multiple task items (batch)
+            async createTaskItems(taskId, items) {
+                return this.request(`/tasks/${taskId}/items`, {
+                    method: 'POST',
+                    body: JSON.stringify({ items })
+                });
+            },
+
+            // Delete task item
+            async deleteTaskItem(taskId, itemId) {
+                return this.request(`/tasks/${taskId}/items/${itemId}`, {
+                    method: 'DELETE'
+                });
             }
         };
 
@@ -8856,7 +8878,8 @@
                         estimatedHours: parsedHours,
                         epic: t.epic || null,
                         sprint: t.sprint || null,
-                        items: t.items || [] // Include task items if preloaded
+                        items: t.items || [], // Include task items if preloaded
+                        tags: t.tags || [] // Include task tags if preloaded
                     };
                 });
             },
@@ -9006,9 +9029,11 @@
                                 </div>
                                 <div class="kanban-column-body">
                                     ${tasksByStatus[col.key].map(task => this.renderTaskCard(task)).join('')}
+                                    ${col.key === 'backlog' ? `
                                     <button class="kanban-add-btn" onclick="App.createNewTask('${col.key}')">
                                         <i class="fas fa-plus"></i> Agregar tarea
                                     </button>
+                                    ` : ''}
                                 </div>
                             </div>
                         `).join('')}
@@ -9051,13 +9076,13 @@
                 const pLabel = task.priorityLabel || priorityLabels[task.priority] || 'P2';
                 const pColor = priorityColors[task.priority] || '#3b82f6';
 
-                // Progress bar with percentage text
-                const progressBar = task.progress > 0 ? `
+                // Progress bar with percentage text - only show in "doing" (En Progreso) column
+                const progressBar = (task.status === 'doing' && task.progress > 0) ? `
                     <div class="task-progress-container" style="display: flex; align-items: center; gap: 6px; margin-top: 6px;">
-                        <div style="flex: 1; height: 3px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
-                            <div style="width: ${task.progress}%; height: 100%; background: ${pColor}; border-radius: 2px; transition: width 0.3s ease;"></div>
+                        <div style="flex: 1; height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden;">
+                            <div style="width: ${task.progress}%; height: 100%; background: linear-gradient(90deg, ${pColor}, ${pColor}dd); border-radius: 2px; transition: width 0.3s ease;"></div>
                         </div>
-                        <span style="font-size: 9px; color: ${task.progress >= 100 ? '#22c55e' : 'var(--text-muted)'}; font-weight: 600; min-width: 28px;">${task.progress}%</span>
+                        <span style="font-size: 10px; color: ${task.progress >= 100 ? '#22c55e' : pColor}; font-weight: 700; min-width: 32px;">${task.progress}%</span>
                     </div>
                 ` : '';
 
@@ -9140,6 +9165,28 @@
                     </span>
                 ` : '';
 
+                // Tags badges - show up to 3 tags
+                const tagsDisplay = task.tags && task.tags.length > 0 ? `
+                    <div class="task-tags-row" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
+                        ${task.tags.slice(0, 3).map(tag => `
+                            <span style="
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 3px;
+                                font-size: 9px;
+                                padding: 2px 6px;
+                                border-radius: 4px;
+                                background: ${tag.color || '#6b7280'}15;
+                                color: ${tag.color || '#6b7280'};
+                            ">
+                                <i class="fas fa-${tag.icon || 'tag'}" style="font-size: 8px;"></i>
+                                ${tag.name}
+                            </span>
+                        `).join('')}
+                        ${task.tags.length > 3 ? `<span style="font-size: 9px; color: var(--text-muted);">+${task.tags.length - 3}</span>` : ''}
+                    </div>
+                ` : '';
+
                 return `
                     <div class="task-card" onclick="App.openTaskModal(${task.id})" data-task-id="${task.id}">
                         <div class="task-card-header">
@@ -9153,6 +9200,7 @@
                             </div>
                         </div>
                         <p class="task-card-desc">${task.description || ''}</p>
+                        ${tagsDisplay}
                         ${progressBar}
                         <div class="task-card-info" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
                             ${projectBadge}
@@ -9160,9 +9208,15 @@
                         </div>
                         <div class="task-card-footer">
                             <div class="task-card-meta">
+                                ${task.assignee && task.assignee.startsWith('SOLARIA-') ? `
+                                <span class="task-card-assignee" style="display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--solaria-orange); background: rgba(246, 146, 29, 0.1); padding: 2px 6px; border-radius: 4px;">
+                                    <i class="fas fa-robot"></i> ${task.assignee.replace('SOLARIA-', '')}
+                                </span>
+                                ` : `
                                 <span class="task-card-assignee" style="display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted);">
                                     <i class="fas fa-user-circle"></i> ${task.assignee}
                                 </span>
+                                `}
                                 ${statusChip}
                             </div>
                             <div class="task-card-date ${isOverdue ? 'overdue' : ''}" style="${isOverdue ? 'color: #ef4444;' : ''}">
@@ -9905,72 +9959,115 @@
                                     </button>
                                 </div>
 
-                                <!-- Checklist Section -->
-                                ${task.items && task.items.length > 0 ? `
-                                    <div class="form-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 12px;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                            <h4 class="form-section-title" style="margin: 0;">
-                                                <i class="fas fa-tasks" style="color: var(--solaria-orange); margin-right: 8px;"></i>
-                                                Checklist de Trabajo
-                                            </h4>
-                                            <span style="font-size: 12px; color: var(--text-muted);">
-                                                ${task.items.filter(i => i.is_completed).length}/${task.items.length} completadas
-                                            </span>
-                                        </div>
-
-                                        <div class="checklist-items" style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;">
-                                            ${task.items.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(item => `
-                                                <div class="checklist-item" style="
-                                                    display: flex;
-                                                    align-items: flex-start;
-                                                    gap: 12px;
-                                                    padding: 12px;
-                                                    background: var(--bg-tertiary);
-                                                    border-radius: 8px;
-                                                    border-left: 3px solid ${item.is_completed ? '#22c55e' : 'var(--border-color)'};
-                                                    ${item.is_completed ? 'opacity: 0.7;' : ''}
-                                                ">
-                                                    <div style="
-                                                        width: 22px;
-                                                        height: 22px;
-                                                        border-radius: 6px;
-                                                        border: 2px solid ${item.is_completed ? '#22c55e' : 'var(--border-color)'};
-                                                        background: ${item.is_completed ? 'rgba(34, 197, 94, 0.2)' : 'transparent'};
-                                                        display: flex;
-                                                        align-items: center;
-                                                        justify-content: center;
-                                                        flex-shrink: 0;
-                                                    ">
-                                                        ${item.is_completed ? '<i class="fas fa-check" style="font-size: 11px; color: #22c55e;"></i>' : ''}
-                                                    </div>
-                                                    <div style="flex: 1; min-width: 0;">
-                                                        <div style="
-                                                            font-size: 13px;
-                                                            color: var(--text-primary);
-                                                            ${item.is_completed ? 'text-decoration: line-through; color: var(--text-muted);' : ''}
-                                                        ">
-                                                            ${item.title}
-                                                        </div>
-                                                        ${item.description ? `
-                                                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                                                                ${item.description}
-                                                            </div>
-                                                        ` : ''}
-                                                        ${item.completed_at ? `
-                                                            <div style="font-size: 10px; color: var(--text-muted); margin-top: 6px;">
-                                                                <i class="fas fa-clock" style="margin-right: 4px;"></i>
-                                                                Completado: ${new Date(item.completed_at).toLocaleString('es-MX', {
-                                                                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-                                                                })}
-                                                                ${item.actual_minutes ? ` (${item.actual_minutes} min)` : ''}
-                                                            </div>
-                                                        ` : ''}
-                                                    </div>
-                                                </div>
-                                            `).join('')}
-                                        </div>
+                                <!-- Checklist Section (Editable) -->
+                                <div class="form-section" style="margin-bottom: 20px; padding: 16px; background: var(--bg-secondary); border-radius: 12px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                        <h4 class="form-section-title" style="margin: 0;">
+                                            <i class="fas fa-tasks" style="color: var(--solaria-orange); margin-right: 8px;"></i>
+                                            Checklist de Trabajo
+                                        </h4>
+                                        <span id="checklistCounter" style="font-size: 12px; color: var(--text-muted);">
+                                            ${task.items ? task.items.filter(i => i.is_completed).length : 0}/${task.items ? task.items.length : 0} completadas
+                                        </span>
                                     </div>
-                                ` : `
+
+                                    <div id="checklistItems" class="checklist-items" style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;">
+                                        ${task.items && task.items.length > 0 ? task.items.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map(item => `
+                                            <div class="checklist-item" data-item-id="${item.id}" style="
+                                                display: flex;
+                                                align-items: flex-start;
+                                                gap: 12px;
+                                                padding: 12px;
+                                                background: var(--bg-tertiary);
+                                                border-radius: 8px;
+                                                border-left: 3px solid ${item.is_completed ? '#22c55e' : 'var(--border-color)'};
+                                                ${item.is_completed ? 'opacity: 0.7;' : ''}
+                                            ">
+                                                <div onclick="App.toggleChecklistItem(${task.id}, ${item.id}, ${!item.is_completed})" style="
+                                                    width: 22px;
+                                                    height: 22px;
+                                                    border-radius: 6px;
+                                                    border: 2px solid ${item.is_completed ? '#22c55e' : 'var(--border-color)'};
+                                                    background: ${item.is_completed ? 'rgba(34, 197, 94, 0.2)' : 'transparent'};
+                                                    display: flex;
+                                                    align-items: center;
+                                                    justify-content: center;
+                                                    flex-shrink: 0;
+                                                    cursor: pointer;
+                                                    transition: all 0.2s ease;
+                                                " onmouseover="this.style.borderColor='var(--solaria-orange)'" onmouseout="this.style.borderColor='${item.is_completed ? '#22c55e' : 'var(--border-color)'}'"
+                                                >
+                                                    ${item.is_completed ? '<i class="fas fa-check" style="font-size: 11px; color: #22c55e;"></i>' : ''}
+                                                </div>
+                                                <div style="flex: 1; min-width: 0;">
+                                                    <div style="
+                                                        font-size: 13px;
+                                                        color: var(--text-primary);
+                                                        ${item.is_completed ? 'text-decoration: line-through; color: var(--text-muted);' : ''}
+                                                    ">
+                                                        ${item.title}
+                                                    </div>
+                                                    ${item.description ? `
+                                                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                                            ${item.description}
+                                                        </div>
+                                                    ` : ''}
+                                                    ${item.completed_at ? `
+                                                        <div style="font-size: 10px; color: var(--text-muted); margin-top: 6px;">
+                                                            <i class="fas fa-clock" style="margin-right: 4px;"></i>
+                                                            Completado: ${new Date(item.completed_at).toLocaleString('es-MX', {
+                                                                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                                                            })}
+                                                            ${item.actual_minutes ? ` (${item.actual_minutes} min)` : ''}
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
+                                                <button onclick="App.deleteChecklistItem(${task.id}, ${item.id})" style="
+                                                    background: transparent;
+                                                    border: none;
+                                                    color: var(--text-muted);
+                                                    cursor: pointer;
+                                                    padding: 4px;
+                                                    opacity: 0.5;
+                                                    transition: opacity 0.2s ease;
+                                                " onmouseover="this.style.opacity='1'; this.style.color='#ef4444'" onmouseout="this.style.opacity='0.5'; this.style.color='var(--text-muted)'"
+                                                    title="Eliminar item">
+                                                    <i class="fas fa-trash" style="font-size: 11px;"></i>
+                                                </button>
+                                            </div>
+                                        `).join('') : '<div style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 20px;">Sin items. Agrega uno debajo.</div>'}
+                                    </div>
+
+                                    <!-- Add new item input -->
+                                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                                        <input type="text" id="newChecklistItem" placeholder="Agregar item al checklist..." style="
+                                            flex: 1;
+                                            padding: 10px 12px;
+                                            border: 1px solid var(--border-color);
+                                            border-radius: 8px;
+                                            background: var(--bg-tertiary);
+                                            color: var(--text-primary);
+                                            font-size: 13px;
+                                        " onkeypress="if(event.key==='Enter') App.addChecklistItem(${task.id})" />
+                                        <button onclick="App.addChecklistItem(${task.id})" style="
+                                            padding: 10px 16px;
+                                            background: var(--solaria-orange);
+                                            color: white;
+                                            border: none;
+                                            border-radius: 8px;
+                                            cursor: pointer;
+                                            font-size: 12px;
+                                            font-weight: 600;
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 6px;
+                                        ">
+                                            <i class="fas fa-plus"></i> Agregar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                ${false ? `
                                     <div class="form-section" style="
                                         margin-bottom: 20px;
                                         padding: 20px;
@@ -10039,13 +10136,13 @@
                                 <button class="btn-secondary" onclick="App.closeTaskModal()">
                                     Cerrar
                                 </button>
-                                <div style="display: flex; gap: 8px;">
+                                <div style="display: flex; gap: 8px; align-items: center;">
                                     <button class="btn-secondary" onclick="alert('Edicion via API - Proximamente')">
                                         <i class="fas fa-edit"></i> Editar
                                     </button>
-                                    <button class="btn-primary" onclick="alert('Cambiar estado via API - Proximamente')">
-                                        <i class="fas fa-check"></i> Marcar Completada
-                                    </button>
+                                    <span style="font-size: 11px; color: var(--text-muted); padding: 6px 10px; background: var(--bg-tertiary); border-radius: 6px; display: flex; align-items: center; gap: 4px;">
+                                        <i class="fas fa-robot"></i> Solo el agente puede completar
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -10149,6 +10246,58 @@
                 } catch (error) {
                     console.error('Error removing tag:', error);
                     this.showNotification('Error al eliminar etiqueta', 'error');
+                }
+            },
+
+            // ============================================
+            // CHECKLIST ITEM MANAGEMENT
+            // ============================================
+
+            async toggleChecklistItem(taskId, itemId, completed) {
+                try {
+                    await API.toggleTaskItemComplete(taskId, itemId);
+                    // Refresh the modal to show updated state
+                    await this.openTaskModal(taskId);
+                    this.showNotification(completed ? 'Item completado' : 'Item desmarcado', 'success');
+                } catch (error) {
+                    console.error('Error toggling checklist item:', error);
+                    this.showNotification('Error al actualizar item', 'error');
+                }
+            },
+
+            async addChecklistItem(taskId) {
+                const input = document.getElementById('newChecklistItem');
+                if (!input) return;
+
+                const title = input.value.trim();
+                if (!title) {
+                    this.showNotification('Escribe un titulo para el item', 'warning');
+                    return;
+                }
+
+                try {
+                    await API.createTaskItems(taskId, [{ title }]);
+                    input.value = '';
+                    // Refresh the modal to show new item
+                    await this.openTaskModal(taskId);
+                    this.showNotification('Item agregado', 'success');
+                } catch (error) {
+                    console.error('Error adding checklist item:', error);
+                    this.showNotification('Error al agregar item', 'error');
+                }
+            },
+
+            async deleteChecklistItem(taskId, itemId) {
+                if (!confirm('¿Eliminar este item del checklist?')) return;
+
+                try {
+                    await API.deleteTaskItem(taskId, itemId);
+                    // Refresh the modal to show updated list
+                    await this.openTaskModal(taskId);
+                    this.showNotification('Item eliminado', 'info');
+                } catch (error) {
+                    console.error('Error deleting checklist item:', error);
+                    this.showNotification('Error al eliminar item', 'error');
                 }
             },
 
