@@ -11,6 +11,7 @@ import {
     ListTodo,
     Loader2,
     AlertCircle,
+    Archive,
 } from 'lucide-react';
 import { useDashboardOverview, useProjects, useTasks } from '@/hooks/useApi';
 import { formatRelativeTime } from '@/lib/utils';
@@ -58,8 +59,10 @@ function CompletedTaskItem({ task, onClick }: { task: CompletedTask; onClick: ()
             </div>
             <div className="task-content">
                 <div className="task-title-row">
+                    <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded mr-2">
+                        {task.taskCode || `#${task.taskNumber}`}
+                    </span>
                     <span className="task-title">{task.title}</span>
-                    <span className="task-priority-badge low">completada</span>
                 </div>
                 <div className="task-meta">
                     {task.projectName && (
@@ -124,6 +127,9 @@ function NewTaskItem({ task, onClick }: { task: Task; onClick: () => void }) {
             </div>
             <div className="task-content">
                 <div className="task-title-row">
+                    <span className="text-xs font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded mr-2 font-semibold">
+                        {task.taskCode || `#${task.taskNumber}`}
+                    </span>
                     <span className="task-title">{task.title}</span>
                     <span className={`task-priority-badge ${priorityClass}`}>
                         {task.priority || 'normal'}
@@ -134,9 +140,10 @@ function NewTaskItem({ task, onClick }: { task: Task; onClick: () => void }) {
                         <Clock className="h-3 w-3" />
                         {formatRelativeTime(task.createdAt)}
                     </span>
-                    {task.taskCode && (
+                    {task.projectName && (
                         <span className="task-meta-item">
-                            {task.taskCode}
+                            <Folder className="h-3 w-3" />
+                            {task.projectName}
                         </span>
                     )}
                 </div>
@@ -262,7 +269,13 @@ export function DashboardPage() {
                                 <div className="widget-subtitle">Feed global en tiempo real</div>
                             </div>
                         </div>
-                        <div className="widget-badge">{completedTasks.length}</div>
+                        <button
+                            onClick={() => navigate('/tasks/archived')}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-muted hover:bg-accent rounded-lg transition-colors"
+                        >
+                            <Archive className="h-3.5 w-3.5" />
+                            Ver todas
+                        </button>
                     </div>
                     <div className="completed-tasks-feed">
                         {tasksLoading ? (

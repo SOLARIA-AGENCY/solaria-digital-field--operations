@@ -8,6 +8,8 @@ import { ProjectsPage } from '@/pages/ProjectsPage';
 import { ProjectDetailPage } from '@/pages/ProjectDetailPage';
 import { ProjectTasksPage } from '@/pages/ProjectTasksPage';
 import { TasksPage } from '@/pages/TasksPage';
+import { ArchivedTasksPage } from '@/pages/ArchivedTasksPage';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { AgentsPage } from '@/pages/AgentsPage';
 import { BusinessesPage } from '@/pages/BusinessesPage';
 import { InfrastructurePage } from '@/pages/InfrastructurePage';
@@ -54,12 +56,14 @@ function App() {
                 <Route path="projects/:id" element={<ProjectDetailPage />} />
                 <Route path="projects/:id/tasks" element={<ProjectTasksPage />} />
                 <Route path="tasks" element={<TasksPage />} />
+                <Route path="tasks/archived" element={<ArchivedTasksPage />} />
                 <Route path="agents" element={<AgentsPage />} />
                 <Route path="businesses" element={<BusinessesPage />} />
                 <Route path="businesses/:businessId" element={<BusinessesPage />} />
                 <Route path="infrastructure" element={<InfrastructurePage />} />
                 <Route path="design-hub" element={<DesignHubPage />} />
                 <Route path="memories" element={<MemoriesPage />} />
+                <Route path="settings" element={<SettingsPage />} />
             </Route>
         </Routes>
     );

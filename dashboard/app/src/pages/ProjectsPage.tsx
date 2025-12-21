@@ -13,7 +13,7 @@ import {
     Users,
     Loader2,
 } from 'lucide-react';
-import { useProjects } from '@/hooks/useApi';
+import { useProjects, useTasks } from '@/hooks/useApi';
 import { cn, formatDate } from '@/lib/utils';
 import type { Project } from '@/types';
 
@@ -30,7 +30,7 @@ type SortOption = 'name' | 'deadline' | 'budget' | 'completion' | 'status';
 type ViewMode = 'grid' | 'list';
 
 // Mini Trello "Equalizer" Component
-function MiniTrello({ board }: { board: { backlog: number; todo: number; doing: number; done: number } }) {
+function MiniTrello({ board }: { board: BoardStats }) {
     const totalSlots = 8;
 
     const generateSlots = (count: number, colorClass: string) => {
@@ -49,19 +49,19 @@ function MiniTrello({ board }: { board: { backlog: number; todo: number; doing: 
     return (
         <div className="mini-trello">
             <div className="trello-column backlog">
-                <div className="trello-column-header">BACKLOG</div>
+                <div className="trello-column-header">PEND ({board.backlog})</div>
                 <div className="trello-slots">{generateSlots(board.backlog, 'backlog')}</div>
             </div>
             <div className="trello-column todo">
-                <div className="trello-column-header">TODO</div>
+                <div className="trello-column-header">REV ({board.todo})</div>
                 <div className="trello-slots">{generateSlots(board.todo, 'todo')}</div>
             </div>
             <div className="trello-column doing">
-                <div className="trello-column-header">DOING</div>
+                <div className="trello-column-header">WIP ({board.doing})</div>
                 <div className="trello-slots">{generateSlots(board.doing, 'doing')}</div>
             </div>
             <div className="trello-column done">
-                <div className="trello-column-header">DONE</div>
+                <div className="trello-column-header">DONE ({board.done})</div>
                 <div className="trello-slots">{generateSlots(board.done, 'done')}</div>
             </div>
         </div>
@@ -88,22 +88,22 @@ function ProgressSegments({ status }: { status: string }) {
     );
 }
 
+// Board stats calculated from real task data
+interface BoardStats {
+    backlog: number;  // pending tasks
+    todo: number;     // review tasks
+    doing: number;    // in_progress tasks
+    done: number;     // completed tasks
+    blocked: number;  // blocked tasks
+}
+
 // Project Card Component (Grid View)
-function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
+function ProjectCard({ project, board, onClick }: { project: Project; board: BoardStats; onClick: () => void }) {
     const phaseInfo = PROJECT_PHASES[project.status as keyof typeof PROJECT_PHASES] || PROJECT_PHASES.planning;
 
-    // Calculate board stats from project data
     const totalTasks = project.tasksTotal || 0;
     const completedTasks = project.tasksCompleted || 0;
     const pendingTasks = totalTasks - completedTasks;
-    const inProgressTasks = Math.min(Math.floor(pendingTasks * 0.3), 3); // Estimate
-
-    const board = {
-        backlog: Math.floor(pendingTasks * 0.4),
-        todo: Math.floor(pendingTasks * 0.3),
-        doing: inProgressTasks,
-        done: completedTasks,
-    };
 
     const budgetStr = project.budgetAllocated
         ? project.budgetAllocated >= 1000
@@ -281,8 +281,22 @@ export function ProjectsPage() {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const { data: projects, isLoading } = useProjects();
+    const { data: allTasks } = useTasks({});
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [sortBy, setSortBy] = useState<SortOption>('name');
+
+    // Calculate board stats per project from real task data
+    const projectBoardStats = (projects || []).reduce((acc, project: Project) => {
+        const projectTasks = (allTasks || []).filter((t: { projectId: number }) => t.projectId === project.id);
+        acc[project.id] = {
+            backlog: projectTasks.filter((t: { status: string }) => t.status === 'pending').length,
+            todo: projectTasks.filter((t: { status: string }) => t.status === 'review').length,
+            doing: projectTasks.filter((t: { status: string }) => t.status === 'in_progress').length,
+            done: projectTasks.filter((t: { status: string }) => t.status === 'completed').length,
+            blocked: projectTasks.filter((t: { status: string }) => t.status === 'blocked').length,
+        };
+        return acc;
+    }, {} as Record<number, BoardStats>);
 
     // Sort projects
     const sortedProjects = [...(projects || [])].sort((a: Project, b: Project) => {
@@ -413,6 +427,7 @@ export function ProjectsPage() {
                         <ProjectCard
                             key={project.id}
                             project={project}
+                            board={projectBoardStats[project.id] || { backlog: 0, todo: 0, doing: 0, done: 0, blocked: 0 }}
                             onClick={() => handleProjectClick(project.id)}
                         />
                     ))}

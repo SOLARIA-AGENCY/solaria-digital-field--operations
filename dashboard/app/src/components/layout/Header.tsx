@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Moon, Sun, LogOut, User, Wifi, WifiOff, Settings, ChevronDown, AlertTriangle, Info, CheckCircle } from 'lucide-react';
+import { Bell, Moon, Sun, LogOut, User, Wifi, WifiOff, Settings, ChevronDown, AlertTriangle, Info, CheckCircle, X } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { useDashboardAlerts } from '@/hooks/useApi';
@@ -25,8 +25,19 @@ export function Header() {
 
     const [showNotifications, setShowNotifications] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
+    const [dismissedAlerts, setDismissedAlerts] = useState<Set<number>>(new Set());
     const notifRef = useRef<HTMLDivElement>(null);
     const userRef = useRef<HTMLDivElement>(null);
+
+    const handleDismissAlert = (alertId: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDismissedAlerts(prev => new Set([...prev, alertId]));
+    };
+
+    const handleClearAllAlerts = () => {
+        const allIds = allAlerts.map(a => a.id);
+        setDismissedAlerts(new Set(allIds));
+    };
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -42,7 +53,7 @@ export function Header() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const allAlerts = (alerts || []) as Alert[];
+    const allAlerts = ((alerts || []) as Alert[]).filter(a => !dismissedAlerts.has(a.id));
     const criticalAlerts = allAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high');
     const alertCount = allAlerts.length;
 
@@ -122,14 +133,24 @@ export function Header() {
                         <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border bg-card shadow-lg">
                             <div className="flex items-center justify-between border-b border-border px-4 py-3">
                                 <span className="font-semibold text-sm">Notificaciones</span>
-                                <span className="text-xs text-muted-foreground">{alertCount} alertas</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground">{alertCount} alertas</span>
+                                    {alertCount > 0 && (
+                                        <button
+                                            onClick={handleClearAllAlerts}
+                                            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                        >
+                                            Limpiar
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             <div className="max-h-80 overflow-y-auto">
                                 {allAlerts.length > 0 ? (
                                     allAlerts.slice(0, 10).map((alert) => (
                                         <div
                                             key={alert.id}
-                                            className="flex gap-3 px-4 py-3 hover:bg-accent/50 cursor-pointer border-b border-border last:border-0"
+                                            className="flex gap-3 px-4 py-3 hover:bg-accent/50 cursor-pointer border-b border-border last:border-0 group relative"
                                         >
                                             {getSeverityIcon(alert.severity)}
                                             <div className="flex-1 min-w-0">
@@ -139,6 +160,13 @@ export function Header() {
                                                     {formatRelativeTime(alert.createdAt)}
                                                 </div>
                                             </div>
+                                            <button
+                                                onClick={(e) => handleDismissAlert(alert.id, e)}
+                                                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-all absolute right-2 top-2"
+                                                title="Descartar"
+                                            >
+                                                <X className="h-3.5 w-3.5 text-muted-foreground" />
+                                            </button>
                                         </div>
                                     ))
                                 ) : (
@@ -197,7 +225,7 @@ export function Header() {
                                 <button
                                     onClick={() => {
                                         setShowUserMenu(false);
-                                        // Navigate to settings when implemented
+                                        navigate('/settings');
                                     }}
                                     className="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-accent transition-colors"
                                 >
