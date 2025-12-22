@@ -53,8 +53,9 @@ export function useDashboardAlerts() {
         queryKey: ['dashboard', 'alerts'],
         queryFn: async () => {
             const { data } = await dashboardApi.getAlerts();
-            // API returns alerts array directly or wrapped
-            return data.data || data.alerts || data || [];
+            // API returns alerts array directly or wrapped - ensure always an array
+            const result = data.data || data.alerts || data;
+            return Array.isArray(result) ? result : [];
         },
         refetchInterval: 15000, // Refresh every 15 seconds
     });
