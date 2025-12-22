@@ -17,11 +17,29 @@ ALTER TABLE projects
 ALTER TABLE projects
     ADD COLUMN stack TEXT DEFAULT NULL AFTER tags;
 
--- Set initial values for SOLARIA DFO project
-UPDATE projects
-SET
-    tags = '["SAAS", "REACT", "B2B"]',
-    stack = '["React", "TypeScript", "Node.js", "Express", "MariaDB", "Docker", "Drizzle ORM"]',
-    repo_url = 'https://github.com/SOLARIA-AGENCY/solaria-digital-field-operations',
-    production_url = 'https://dfo.solaria.agency'
-WHERE id = 1;
+-- Set initial values for SOLARIA DFO project (only if exists)
+-- Using a procedure to safely update with existence check
+DELIMITER //
+CREATE PROCEDURE IF NOT EXISTS update_solaria_dfo_project()
+BEGIN
+    DECLARE project_exists INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO project_exists FROM projects WHERE id = 1;
+
+    IF project_exists = 1 THEN
+        UPDATE projects
+        SET
+            tags = '["SAAS", "REACT", "B2B"]',
+            stack = '["React", "TypeScript", "Node.js", "Express", "MariaDB", "Docker", "Drizzle ORM"]',
+            repo_url = 'https://github.com/SOLARIA-AGENCY/solaria-digital-field-operations',
+            production_url = 'https://dfo.solaria.agency'
+        WHERE id = 1;
+        SELECT 'SOLARIA DFO project updated successfully' AS status;
+    ELSE
+        SELECT 'Project id=1 not found, skipping update' AS status;
+    END IF;
+END //
+DELIMITER ;
+
+CALL update_solaria_dfo_project();
+DROP PROCEDURE IF EXISTS update_solaria_dfo_project;
