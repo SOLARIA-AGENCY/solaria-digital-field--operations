@@ -20,7 +20,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
         <QueryClientProvider client={queryClient}>
             <SocketProvider>
-                <BrowserRouter basename="/v2">
+                <BrowserRouter>
                     <App />
                 </BrowserRouter>
             </SocketProvider>
