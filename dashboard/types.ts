@@ -607,6 +607,11 @@ export interface ServerToClientEvents {
   activity_logged: (activity: ActivityLoggedEvent) => void;
   epic_created: (data: { id: number; epicNumber: number; name: string; projectId: number }) => void;
   sprint_created: (data: { id: number; sprintNumber: number; name: string; projectId: number }) => void;
+  // Real-time notification events (colon-style)
+  'project:created': (data: { projectId: number; name: string; code: string; priority: string }) => void;
+  'project:updated': (data: { projectId: number; name?: string; status?: string; progress?: number }) => void;
+  'project:deleted': (data: { projectId: number; name: string; code: string }) => void;
+  'project:archived': (data: { projectId: number; name: string; archived: boolean }) => void;
 }
 
 export interface ClientToServerEvents {

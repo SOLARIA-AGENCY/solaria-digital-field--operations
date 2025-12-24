@@ -20,7 +20,8 @@ export function useAuthVerification() {
 
             try {
                 const { data } = await authApi.verify();
-                if (data.success && data.user) {
+                // API returns {valid: true/false, user: {...}} not {success: true}
+                if (data.valid && data.user) {
                     // Update user data in case it changed
                     login(data.user, token);
                 } else {

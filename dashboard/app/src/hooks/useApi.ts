@@ -146,9 +146,10 @@ export function useTask(id: number) {
         queryKey: ['tasks', id],
         queryFn: async () => {
             const { data } = await tasksApi.getById(id);
-            return data.data as Task;
+            // API returns { task: {...} } or { data: {...} } or task directly
+            return (data.task || data.data || data) as Task;
         },
-        enabled: !!id,
+        enabled: !!id && id > 0,
     });
 }
 
@@ -204,9 +205,10 @@ export function useAgent(id: number) {
         queryKey: ['agents', id],
         queryFn: async () => {
             const { data } = await agentsApi.getById(id);
-            return data.data as Agent;
+            // API returns { agent: {...} } or { data: {...} } or agent directly
+            return (data.agent || data.data || data) as Agent;
         },
-        enabled: !!id,
+        enabled: !!id && id > 0,
     });
 }
 
@@ -215,20 +217,31 @@ export function useAgentTasks(agentId: number, status?: string) {
         queryKey: ['agents', agentId, 'tasks', status],
         queryFn: async () => {
             const { data } = await agentsApi.getTasks(agentId, status);
-            return data.data as Task[];
+            // API returns { tasks: [...] } or { data: [...] } or array directly
+            return (data.tasks || data.data || data || []) as Task[];
         },
-        enabled: !!agentId,
+        enabled: !!agentId && agentId > 0,
     });
 }
 
 // Memories hooks
 export function useMemories(filters?: { projectId?: number; tags?: string[] }) {
+    // Create stable queryKey - only include non-empty values
+    const tagsKey = filters?.tags?.length ? filters.tags.join(',') : '';
+    const projectId = filters?.projectId;
+
     return useQuery({
-        queryKey: ['memories', filters],
+        queryKey: ['memories', { projectId, tags: tagsKey }],
         queryFn: async () => {
-            const { data } = await memoriesApi.getAll(filters);
+            // Only send params if they have values
+            const params: Record<string, unknown> = {};
+            if (projectId) params.projectId = projectId;
+            if (tagsKey) params.tags = JSON.stringify(filters!.tags);
+
+            const { data } = await memoriesApi.getAll(Object.keys(params).length > 0 ? params : undefined);
             // API returns { memories: [...] }
-            return (data.memories || data.data || data || []) as Memory[];
+            const memories = data?.memories || data?.data || data || [];
+            return Array.isArray(memories) ? memories as Memory[] : [];
         },
     });
 }
@@ -238,9 +251,10 @@ export function useMemory(id: number) {
         queryKey: ['memories', id],
         queryFn: async () => {
             const { data } = await memoriesApi.getById(id);
-            return data.data as Memory;
+            // API returns { memory: {...} } or { data: {...} } or memory directly
+            return (data.memory || data.data || data) as Memory;
         },
-        enabled: !!id,
+        enabled: !!id && id > 0,
     });
 }
 
@@ -297,6 +311,22 @@ export function useBoostMemory() {
             queryClient.invalidateQueries({ queryKey: ['memories'] });
             queryClient.invalidateQueries({ queryKey: ['memories', id] });
         },
+    });
+}
+
+export function useMemoryRelated(id: number) {
+    return useQuery({
+        queryKey: ['memories', id, 'related'],
+        queryFn: async () => {
+            const { data } = await memoriesApi.getRelated(id);
+            // API returns { related: [...] } or array directly
+            return (data.related || data.data || data || []) as Array<{
+                id: number;
+                relationshipType: string;
+                relatedMemory: Memory;
+            }>;
+        },
+        enabled: !!id,
     });
 }
 

@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS projects (
     office_visible TINYINT(1) DEFAULT 0,
     description TEXT,
     status ENUM('planning', 'development', 'testing', 'deployment', 'completed', 'on_hold', 'cancelled') DEFAULT 'planning',
+    archived BOOLEAN DEFAULT FALSE,
+    archived_at DATETIME DEFAULT NULL,
     priority ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
     budget DECIMAL(15, 2) DEFAULT 0,
     actual_cost DECIMAL(15, 2) DEFAULT 0,
@@ -49,6 +51,8 @@ CREATE TABLE IF NOT EXISTS projects (
 -- Opt-in flags for Office visibility (safe for idempotent re-runs)
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS office_origin ENUM('dfo', 'office') DEFAULT 'dfo';
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS office_visible TINYINT(1) DEFAULT 0;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS archived_at DATETIME DEFAULT NULL;
 
 -- AI Agents table
 CREATE TABLE IF NOT EXISTS ai_agents (

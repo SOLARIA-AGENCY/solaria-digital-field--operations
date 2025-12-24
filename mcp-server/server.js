@@ -490,6 +490,143 @@ server.setRequestHandler(types_js_1.ListToolsRequestSchema, function () { return
                             properties: {},
                         },
                     },
+                    // Epic Tools
+                    {
+                        name: "list_epics",
+                        description: "List all epics for a project",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                project_id: { type: "number", description: "Project ID" },
+                                status: {
+                                    type: "string",
+                                    enum: ["open", "in_progress", "completed", "cancelled"],
+                                    description: "Filter by epic status",
+                                },
+                            },
+                            required: ["project_id"],
+                        },
+                    },
+                    {
+                        name: "create_epic",
+                        description: "Create a new epic for a project",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                project_id: { type: "number", description: "Project ID" },
+                                name: { type: "string", description: "Epic name (min 3 chars)" },
+                                description: { type: "string", description: "Epic description" },
+                                color: { type: "string", description: "Color hex (e.g., #6366f1)" },
+                                status: {
+                                    type: "string",
+                                    enum: ["open", "in_progress", "completed", "cancelled"],
+                                },
+                                start_date: { type: "string", description: "Start date (YYYY-MM-DD)" },
+                                target_date: { type: "string", description: "Target date (YYYY-MM-DD)" },
+                            },
+                            required: ["project_id", "name"],
+                        },
+                    },
+                    {
+                        name: "update_epic",
+                        description: "Update an existing epic",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                epic_id: { type: "number", description: "Epic ID to update" },
+                                name: { type: "string", description: "Epic name" },
+                                description: { type: "string", description: "Epic description" },
+                                color: { type: "string", description: "Color hex" },
+                                status: {
+                                    type: "string",
+                                    enum: ["open", "in_progress", "completed", "cancelled"],
+                                },
+                                start_date: { type: "string", description: "Start date" },
+                                target_date: { type: "string", description: "Target date" },
+                            },
+                            required: ["epic_id"],
+                        },
+                    },
+                    {
+                        name: "delete_epic",
+                        description: "Delete an epic (tasks will have epic_id set to NULL)",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                epic_id: { type: "number", description: "Epic ID to delete" },
+                            },
+                            required: ["epic_id"],
+                        },
+                    },
+                    // Sprint Tools
+                    {
+                        name: "list_sprints",
+                        description: "List all sprints for a project",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                project_id: { type: "number", description: "Project ID" },
+                                status: {
+                                    type: "string",
+                                    enum: ["planned", "active", "completed", "cancelled"],
+                                    description: "Filter by sprint status",
+                                },
+                            },
+                            required: ["project_id"],
+                        },
+                    },
+                    {
+                        name: "create_sprint",
+                        description: "Create a new sprint for a project",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                project_id: { type: "number", description: "Project ID" },
+                                name: { type: "string", description: "Sprint name (min 3 chars)" },
+                                goal: { type: "string", description: "Sprint goal" },
+                                status: {
+                                    type: "string",
+                                    enum: ["planned", "active", "completed", "cancelled"],
+                                },
+                                start_date: { type: "string", description: "Start date (YYYY-MM-DD)" },
+                                end_date: { type: "string", description: "End date (YYYY-MM-DD)" },
+                                velocity: { type: "number", description: "Planned velocity (story points)" },
+                                capacity: { type: "number", description: "Team capacity (hours)" },
+                            },
+                            required: ["project_id", "name"],
+                        },
+                    },
+                    {
+                        name: "update_sprint",
+                        description: "Update an existing sprint",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                sprint_id: { type: "number", description: "Sprint ID to update" },
+                                name: { type: "string", description: "Sprint name" },
+                                goal: { type: "string", description: "Sprint goal" },
+                                status: {
+                                    type: "string",
+                                    enum: ["planned", "active", "completed", "cancelled"],
+                                },
+                                start_date: { type: "string", description: "Start date" },
+                                end_date: { type: "string", description: "End date" },
+                                velocity: { type: "number", description: "Actual velocity" },
+                            },
+                            required: ["sprint_id"],
+                        },
+                    },
+                    {
+                        name: "delete_sprint",
+                        description: "Delete a sprint (tasks will have sprint_id set to NULL)",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                sprint_id: { type: "number", description: "Sprint ID to delete" },
+                            },
+                            required: ["sprint_id"],
+                        },
+                    },
                 ],
             }];
     });
