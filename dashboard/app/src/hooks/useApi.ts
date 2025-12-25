@@ -592,6 +592,19 @@ export function useDeleteEpic() {
     });
 }
 
+// Get single epic with tasks
+export function useEpic(epicId: number | null) {
+    return useQuery({
+        queryKey: ['epics', epicId],
+        queryFn: async () => {
+            if (!epicId) return null;
+            const { data } = await epicsApi.getById(epicId);
+            return data as { epic: Epic & { tasks_count: number; tasks_completed: number; project_name: string; project_code: string }; tasks: Task[] };
+        },
+        enabled: !!epicId,
+    });
+}
+
 // ============================================================
 // Sprints hooks
 // ============================================================
@@ -638,5 +651,18 @@ export function useDeleteSprint() {
             queryClient.invalidateQueries({ queryKey: ['projects', variables.projectId, 'sprints'] });
             queryClient.invalidateQueries({ queryKey: ['tasks'] }); // Tasks may have sprint assignments
         },
+    });
+}
+
+// Get single sprint with tasks
+export function useSprint(sprintId: number | null) {
+    return useQuery({
+        queryKey: ['sprints', sprintId],
+        queryFn: async () => {
+            if (!sprintId) return null;
+            const { data } = await sprintsApi.getById(sprintId);
+            return data as { sprint: Sprint & { tasks_count: number; tasks_completed: number; total_estimated_hours: number; project_name: string; project_code: string }; tasks: Task[] };
+        },
+        enabled: !!sprintId,
     });
 }

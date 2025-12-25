@@ -9,6 +9,7 @@ import { ProjectDetailPage } from '@/pages/ProjectDetailPage';
 import { ProjectTasksPage } from '@/pages/ProjectTasksPage';
 import { ProjectLinksPage } from '@/pages/ProjectLinksPage';
 import { ProjectSettingsPage } from '@/pages/ProjectSettingsPage';
+import { RoadmapPage } from '@/pages/RoadmapPage';
 import { TasksPage } from '@/pages/TasksPage';
 import { ArchivedTasksPage } from '@/pages/ArchivedTasksPage';
 import { ArchivedProjectsPage } from '@/pages/ArchivedProjectsPage';
@@ -67,6 +68,7 @@ function App() {
                 <Route path="projects/:id/tasks" element={<ProjectTasksPage />} />
                 <Route path="projects/:id/links" element={<ProjectLinksPage />} />
                 <Route path="projects/:id/settings" element={<ProjectSettingsPage />} />
+                <Route path="projects/:id/roadmap" element={<RoadmapPage />} />
                 <Route path="tasks" element={<TasksPage />} />
                 <Route path="tasks/archived" element={<ArchivedTasksPage />} />
                 <Route path="agents" element={<AgentsPage />} />

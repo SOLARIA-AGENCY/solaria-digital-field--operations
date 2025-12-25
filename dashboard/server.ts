@@ -20,6 +20,9 @@ import path from 'path';
 import fs from 'fs';
 import 'dotenv/config';
 
+// Import services
+import { WebhookService } from './services/webhookService.js';
+
 // Import local types
 import type {
     AuthenticatedRequest,
@@ -65,6 +68,7 @@ class SolariaDashboardServer {
     private repoPath: string;
     private _dbHealthInterval: ReturnType<typeof setInterval> | null;
     private workerUrl: string;
+    private webhookService: WebhookService | null;
 
     constructor() {
         this.app = express();
@@ -79,6 +83,7 @@ class SolariaDashboardServer {
         this.connectedClients = new Map();
         this._dbHealthInterval = null;
         this.workerUrl = process.env.WORKER_URL || 'http://worker:3032';
+        this.webhookService = null;
 
         // Trust proxy for rate limiting behind nginx
         this.app.set('trust proxy', true);
@@ -142,6 +147,10 @@ class SolariaDashboardServer {
 
                 // Setup connection health check with auto-reconnect
                 this.setupDatabaseHealthCheck();
+
+                // Initialize webhook service
+                this.webhookService = new WebhookService(this.db);
+                console.log('WebhookService initialized');
                 return;
 
             } catch (error) {
@@ -238,7 +247,7 @@ class SolariaDashboardServer {
                 return null;
             }
 
-            const data = await response.json();
+            const data = await response.json() as { embedding: number[] };
             return data.embedding;
         } catch (error) {
             console.error('Failed to get query embedding:', error);
@@ -327,12 +336,14 @@ class SolariaDashboardServer {
 
         // Epics
         this.app.get('/api/projects/:id/epics', this.getProjectEpics.bind(this));
+        this.app.get('/api/epics/:id', this.getEpicById.bind(this));
         this.app.post('/api/projects/:id/epics', this.createEpic.bind(this));
         this.app.put('/api/epics/:id', this.updateEpic.bind(this));
         this.app.delete('/api/epics/:id', this.deleteEpic.bind(this));
 
         // Sprints
         this.app.get('/api/projects/:id/sprints', this.getProjectSprints.bind(this));
+        this.app.get('/api/sprints/:id', this.getSprintById.bind(this));
         this.app.post('/api/projects/:id/sprints', this.createSprint.bind(this));
         this.app.put('/api/sprints/:id', this.updateSprint.bind(this));
         this.app.delete('/api/sprints/:id', this.deleteSprint.bind(this));
@@ -418,6 +429,15 @@ class SolariaDashboardServer {
         this.app.post('/api/memories/crossrefs', this.createMemoryCrossref.bind(this));
         this.app.put('/api/memories/:id', this.updateMemory.bind(this));
         this.app.delete('/api/memories/:id', this.deleteMemory.bind(this));
+
+        // Webhooks API (n8n integration)
+        this.app.get('/api/webhooks', this.getWebhooks.bind(this));
+        this.app.get('/api/webhooks/:id', this.getWebhook.bind(this));
+        this.app.get('/api/webhooks/:id/deliveries', this.getWebhookDeliveries.bind(this));
+        this.app.post('/api/webhooks', this.createWebhook.bind(this));
+        this.app.post('/api/webhooks/:id/test', this.testWebhook.bind(this));
+        this.app.put('/api/webhooks/:id', this.updateWebhook.bind(this));
+        this.app.delete('/api/webhooks/:id', this.deleteWebhook.bind(this));
 
         // Static files
         this.app.use(express.static(path.join(__dirname, 'public')));
@@ -1680,6 +1700,19 @@ class SolariaDashboardServer {
                 priority: priority || 'medium'
             });
 
+            // Dispatch webhook event for n8n integration
+            this.dispatchWebhookEvent('project.created', {
+                project_id: result.insertId,
+                name: name,
+                code: projectCode,
+                client: client || null,
+                description: description || null,
+                priority: priority || 'medium',
+                budget: budget || null,
+                deadline: deadline || null,
+                office_origin: normalizedOrigin
+            }, result.insertId);
+
             res.status(201).json({
                 id: result.insertId,
                 project_id: result.insertId,
@@ -1779,6 +1812,28 @@ class SolariaDashboardServer {
                 progress: updates.completion_percentage
             });
 
+            // Dispatch webhook event for n8n integration
+            this.dispatchWebhookEvent('project.updated', {
+                project_id: parseInt(id),
+                ...updates
+            }, parseInt(id));
+
+            // Dispatch status_changed if status was updated
+            if (updates.status !== undefined) {
+                this.dispatchWebhookEvent('project.status_changed', {
+                    project_id: parseInt(id),
+                    new_status: updates.status
+                }, parseInt(id));
+
+                // Dispatch project.completed if status is 'completed'
+                if (updates.status === 'completed') {
+                    this.dispatchWebhookEvent('project.completed', {
+                        project_id: parseInt(id),
+                        name: updates.name
+                    }, parseInt(id));
+                }
+            }
+
             res.json({ message: 'Project updated successfully' });
 
         } catch (error) {
@@ -1815,6 +1870,16 @@ class SolariaDashboardServer {
                 name: projectInfo?.name || 'Proyecto',
                 code: projectInfo?.code || ''
             });
+
+            // Note: project.deleted is captured by 'all' webhooks
+            // Dispatch as generic event for n8n workflows that need project deletion notifications
+            this.dispatchWebhookEvent('project.updated', {
+                project_id: parseInt(id),
+                name: projectInfo?.name || 'Proyecto',
+                code: projectInfo?.code || '',
+                deleted: true,
+                status: 'deleted'
+            }, parseInt(id));
 
             res.json({ message: 'Project deleted successfully' });
 
@@ -1985,6 +2050,46 @@ class SolariaDashboardServer {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             console.error('Get project epics error:', errorMessage);
             res.status(500).json({ error: 'Failed to get epics' });
+        }
+    }
+
+    private async getEpicById(req: Request, res: Response): Promise<void> {
+        try {
+            const { id } = req.params;
+
+            const [epics] = await this.db!.execute<RowDataPacket[]>(`
+                SELECT e.*,
+                    p.name as project_name,
+                    p.code as project_code,
+                    (SELECT COUNT(*) FROM tasks WHERE epic_id = e.id) as tasks_count,
+                    (SELECT COUNT(*) FROM tasks WHERE epic_id = e.id AND status = 'completed') as tasks_completed
+                FROM epics e
+                LEFT JOIN projects p ON e.project_id = p.id
+                WHERE e.id = ?
+            `, [id]);
+
+            if (epics.length === 0) {
+                res.status(404).json({ error: 'Epic not found' });
+                return;
+            }
+
+            // Get associated tasks
+            const [tasks] = await this.db!.execute<RowDataPacket[]>(`
+                SELECT id, title, status, progress, priority, estimated_hours
+                FROM tasks
+                WHERE epic_id = ?
+                ORDER BY priority DESC, created_at ASC
+            `, [id]);
+
+            res.json({
+                epic: epics[0],
+                tasks
+            });
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Get epic by id error:', errorMessage);
+            res.status(500).json({ error: 'Failed to get epic' });
         }
     }
 
@@ -2161,6 +2266,47 @@ class SolariaDashboardServer {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             console.error('Get project sprints error:', errorMessage);
             res.status(500).json({ error: 'Failed to get sprints' });
+        }
+    }
+
+    private async getSprintById(req: Request, res: Response): Promise<void> {
+        try {
+            const { id } = req.params;
+
+            const [sprints] = await this.db!.execute<RowDataPacket[]>(`
+                SELECT s.*,
+                    p.name as project_name,
+                    p.code as project_code,
+                    (SELECT COUNT(*) FROM tasks WHERE sprint_id = s.id) as tasks_count,
+                    (SELECT COUNT(*) FROM tasks WHERE sprint_id = s.id AND status = 'completed') as tasks_completed,
+                    (SELECT SUM(estimated_hours) FROM tasks WHERE sprint_id = s.id) as total_estimated_hours
+                FROM sprints s
+                LEFT JOIN projects p ON s.project_id = p.id
+                WHERE s.id = ?
+            `, [id]);
+
+            if (sprints.length === 0) {
+                res.status(404).json({ error: 'Sprint not found' });
+                return;
+            }
+
+            // Get associated tasks
+            const [tasks] = await this.db!.execute<RowDataPacket[]>(`
+                SELECT id, title, status, progress, priority, estimated_hours
+                FROM tasks
+                WHERE sprint_id = ?
+                ORDER BY priority DESC, created_at ASC
+            `, [id]);
+
+            res.json({
+                sprint: sprints[0],
+                tasks
+            });
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Get sprint by id error:', errorMessage);
+            res.status(500).json({ error: 'Failed to get sprint' });
         }
     }
 
@@ -3002,6 +3148,21 @@ class SolariaDashboardServer {
                 created_at: new Date().toISOString()
             } as any);
 
+            // Dispatch webhook event for n8n integration
+            this.dispatchWebhookEvent('task.created', {
+                task_id: result.insertId,
+                task_code: taskCode,
+                task_number: taskNumber,
+                title: title || 'Nueva tarea',
+                description: description || '',
+                assigned_agent_id: agentId || null,
+                priority: priority || 'medium',
+                status: 'pending',
+                epic_id: epic_id || null,
+                sprint_id: sprint_id || null,
+                estimated_hours: estimated_hours || null
+            }, project_id || undefined);
+
             res.status(201).json({
                 id: result.insertId,
                 task_code: taskCode,
@@ -3108,6 +3269,46 @@ class SolariaDashboardServer {
                     agent_name: task.agent_name,
                     priority: task.priority || 'medium'
                 } as any);
+
+                // Dispatch webhook event for task completed
+                this.dispatchWebhookEvent('task.completed', {
+                    task_id: parseInt(id),
+                    title: task.title,
+                    project_name: task.project_name,
+                    agent_name: task.agent_name,
+                    priority: task.priority
+                }, task.project_id || undefined);
+            }
+
+            // Dispatch webhook event for task updated
+            this.dispatchWebhookEvent('task.updated', {
+                task_id: parseInt(id),
+                task_code: taskCode,
+                title: taskForEmit.title || updates.title,
+                project_id: taskForEmit.project_id,
+                ...updates
+            }, taskForEmit.project_id || undefined);
+
+            // Dispatch status_changed if status was updated
+            if (updates.status !== undefined) {
+                this.dispatchWebhookEvent('task.status_changed', {
+                    task_id: parseInt(id),
+                    task_code: taskCode,
+                    title: taskForEmit.title,
+                    new_status: updates.status,
+                    project_id: taskForEmit.project_id
+                }, taskForEmit.project_id || undefined);
+            }
+
+            // Dispatch task.assigned if agent was changed
+            if (updates.assigned_agent_id !== undefined) {
+                this.dispatchWebhookEvent('task.assigned', {
+                    task_id: parseInt(id),
+                    task_code: taskCode,
+                    title: taskForEmit.title,
+                    assigned_agent_id: updates.assigned_agent_id,
+                    project_id: taskForEmit.project_id
+                }, taskForEmit.project_id || undefined);
             }
 
             res.json({ message: 'Task updated successfully' });
@@ -3153,6 +3354,12 @@ class SolariaDashboardServer {
                 projectId: task.project_id,
                 project_id: task.project_id
             } as any);
+
+            // Dispatch webhook event for n8n integration
+            this.dispatchWebhookEvent('task.deleted', {
+                task_id: parseInt(id),
+                title: task.title
+            }, task.project_id || undefined);
 
             res.json({ message: 'Task deleted successfully', deleted_id: parseInt(id) });
 
@@ -5366,6 +5573,193 @@ class SolariaDashboardServer {
             console.error('Create crossref error:', error);
             res.status(500).json({ error: 'Failed to create cross-reference' });
         }
+    }
+
+    // ========================================================================
+    // Webhooks Handlers (n8n Integration)
+    // ========================================================================
+
+    private async getWebhooks(req: Request, res: Response): Promise<void> {
+        try {
+            if (!this.webhookService) {
+                res.status(503).json({ error: 'Webhook service not initialized' });
+                return;
+            }
+
+            const projectId = req.query.project_id ? parseInt(req.query.project_id as string, 10) : undefined;
+            const webhooks = await this.webhookService.list(projectId);
+
+            res.json({
+                webhooks,
+                count: webhooks.length
+            });
+        } catch (error) {
+            console.error('Get webhooks error:', error);
+            res.status(500).json({ error: 'Failed to fetch webhooks' });
+        }
+    }
+
+    private async getWebhook(req: Request, res: Response): Promise<void> {
+        try {
+            if (!this.webhookService) {
+                res.status(503).json({ error: 'Webhook service not initialized' });
+                return;
+            }
+
+            const id = parseInt(req.params.id, 10);
+            const webhook = await this.webhookService.get(id);
+
+            if (!webhook) {
+                res.status(404).json({ error: 'Webhook not found' });
+                return;
+            }
+
+            res.json(webhook);
+        } catch (error) {
+            console.error('Get webhook error:', error);
+            res.status(500).json({ error: 'Failed to fetch webhook' });
+        }
+    }
+
+    private async getWebhookDeliveries(req: Request, res: Response): Promise<void> {
+        try {
+            if (!this.webhookService) {
+                res.status(503).json({ error: 'Webhook service not initialized' });
+                return;
+            }
+
+            const id = parseInt(req.params.id, 10);
+            const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+            const deliveries = await this.webhookService.getDeliveries(id, limit);
+
+            res.json({
+                deliveries,
+                count: deliveries.length
+            });
+        } catch (error) {
+            console.error('Get webhook deliveries error:', error);
+            res.status(500).json({ error: 'Failed to fetch webhook deliveries' });
+        }
+    }
+
+    private async createWebhook(req: Request, res: Response): Promise<void> {
+        try {
+            if (!this.webhookService) {
+                res.status(503).json({ error: 'Webhook service not initialized' });
+                return;
+            }
+
+            const { name, url, event_type, project_id, http_method, secret, headers, max_retries, retry_delay_ms } = req.body;
+
+            if (!name || !url || !event_type) {
+                res.status(400).json({ error: 'name, url, and event_type are required' });
+                return;
+            }
+
+            const webhookId = await this.webhookService.create({
+                name,
+                url,
+                event_type,
+                project_id,
+                http_method,
+                secret,
+                headers,
+                max_retries,
+                retry_delay_ms
+            });
+
+            res.status(201).json({
+                id: webhookId,
+                message: 'Webhook created successfully'
+            });
+        } catch (error) {
+            console.error('Create webhook error:', error);
+            res.status(500).json({ error: 'Failed to create webhook' });
+        }
+    }
+
+    private async updateWebhook(req: Request, res: Response): Promise<void> {
+        try {
+            if (!this.webhookService) {
+                res.status(503).json({ error: 'Webhook service not initialized' });
+                return;
+            }
+
+            const id = parseInt(req.params.id, 10);
+            const updated = await this.webhookService.update(id, req.body);
+
+            if (!updated) {
+                res.status(404).json({ error: 'Webhook not found or no changes made' });
+                return;
+            }
+
+            res.json({ message: 'Webhook updated successfully' });
+        } catch (error) {
+            console.error('Update webhook error:', error);
+            res.status(500).json({ error: 'Failed to update webhook' });
+        }
+    }
+
+    private async deleteWebhook(req: Request, res: Response): Promise<void> {
+        try {
+            if (!this.webhookService) {
+                res.status(503).json({ error: 'Webhook service not initialized' });
+                return;
+            }
+
+            const id = parseInt(req.params.id, 10);
+            const deleted = await this.webhookService.delete(id);
+
+            if (!deleted) {
+                res.status(404).json({ error: 'Webhook not found' });
+                return;
+            }
+
+            res.json({ message: 'Webhook deleted successfully' });
+        } catch (error) {
+            console.error('Delete webhook error:', error);
+            res.status(500).json({ error: 'Failed to delete webhook' });
+        }
+    }
+
+    private async testWebhook(req: Request, res: Response): Promise<void> {
+        try {
+            if (!this.webhookService) {
+                res.status(503).json({ error: 'Webhook service not initialized' });
+                return;
+            }
+
+            const id = parseInt(req.params.id, 10);
+            const result = await this.webhookService.test(id);
+
+            res.json({
+                success: result.success,
+                status_code: result.statusCode,
+                response_time_ms: result.responseTimeMs,
+                error: result.error,
+                response_body: result.responseBody
+            });
+        } catch (error) {
+            console.error('Test webhook error:', error);
+            res.status(500).json({ error: 'Failed to test webhook' });
+        }
+    }
+
+    /**
+     * Dispatch webhook event (internal use)
+     * Called when task/project events occur
+     */
+    public async dispatchWebhookEvent(
+        eventType: string,
+        data: Record<string, unknown>,
+        projectId?: number
+    ): Promise<void> {
+        if (!this.webhookService) {
+            console.warn('WebhookService not initialized, skipping event dispatch');
+            return;
+        }
+
+        await this.webhookService.dispatch(eventType, data, projectId);
     }
 
     // ========================================================================

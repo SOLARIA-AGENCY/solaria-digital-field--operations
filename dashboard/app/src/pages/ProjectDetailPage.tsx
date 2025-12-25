@@ -36,6 +36,9 @@ import {
 } from '@/hooks/useApi';
 import { Modal } from '@/components/common/Modal';
 import { MiniTrello } from '@/components/common/MiniTrello';
+import { EpicDetailModal } from '@/components/epics/EpicDetailModal';
+import { SprintDetailModal } from '@/components/sprints/SprintDetailModal';
+import { RoadmapCard } from '@/components/roadmap/RoadmapCard';
 import { cn, formatRelativeTime } from '@/lib/utils';
 import type { Task, Project, Epic, Sprint } from '@/types';
 
@@ -424,10 +427,12 @@ function EpicsCard({
     epics,
     onCreateEpic,
     onDeleteEpic,
+    onEpicClick,
 }: {
     epics: Epic[];
     onCreateEpic: (name: string) => void;
     onDeleteEpic: (id: number) => void;
+    onEpicClick?: (epicId: number) => void;
 }) {
     const [showForm, setShowForm] = useState(false);
     const [newEpicName, setNewEpicName] = useState('');
@@ -466,34 +471,48 @@ function EpicsCard({
 
             {/* Epics list */}
             <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
-                {epics.map((epic) => (
-                    <div
-                        key={epic.id}
-                        className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 group"
-                    >
+                {epics.map((epic) => {
+                    const isActive = epic.status === 'in_progress';
+                    return (
                         <div
-                            className="w-3 h-3 rounded-full shrink-0"
-                            style={{ backgroundColor: epic.color || '#6366f1' }}
-                        />
-                        <span className="flex-1 text-sm text-foreground truncate">
-                            EPIC{String(epic.epicNumber).padStart(2, '0')}: {epic.name}
-                        </span>
-                        <span className={cn(
-                            'text-xs px-1.5 py-0.5 rounded',
-                            epic.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                            epic.status === 'in_progress' ? 'bg-blue-500/20 text-blue-400' :
-                            'bg-gray-500/20 text-gray-400'
-                        )}>
-                            {epic.status}
-                        </span>
-                        <button
-                            onClick={() => onDeleteEpic(epic.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all"
+                            key={epic.id}
+                            onClick={() => onEpicClick?.(epic.id)}
+                            className={cn(
+                                'flex items-center gap-2 p-2 rounded-lg group transition-colors',
+                                isActive
+                                    ? 'bg-purple-500/10 border-l-3 border-purple-500 cursor-pointer hover:bg-purple-500/20'
+                                    : 'bg-secondary/50 cursor-pointer hover:bg-secondary/80'
+                            )}
                         >
-                            <Trash2 className="h-3 w-3" />
-                        </button>
-                    </div>
-                ))}
+                            <div
+                                className="w-3 h-3 rounded-full shrink-0"
+                                style={{ backgroundColor: epic.color || '#6366f1' }}
+                            />
+                            <span className="flex-1 text-sm text-foreground truncate">
+                                EPIC{String(epic.epicNumber).padStart(2, '0')}: {epic.name}
+                            </span>
+                            {isActive && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500 text-white font-medium animate-pulse">
+                                    ACTIVO
+                                </span>
+                            )}
+                            <span className={cn(
+                                'text-xs px-1.5 py-0.5 rounded',
+                                epic.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                                epic.status === 'in_progress' ? 'bg-purple-500/20 text-purple-400' :
+                                'bg-gray-500/20 text-gray-400'
+                            )}>
+                                {epic.status}
+                            </span>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onDeleteEpic(epic.id); }}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all"
+                            >
+                                <Trash2 className="h-3 w-3" />
+                            </button>
+                        </div>
+                    );
+                })}
                 {epics.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-2">Sin epics</p>
                 )}
@@ -546,10 +565,12 @@ function SprintsCard({
     sprints,
     onCreateSprint,
     onDeleteSprint,
+    onSprintClick,
 }: {
     sprints: Sprint[];
     onCreateSprint: (name: string) => void;
     onDeleteSprint: (id: number) => void;
+    onSprintClick?: (sprintId: number) => void;
 }) {
     const [showForm, setShowForm] = useState(false);
     const [newSprintName, setNewSprintName] = useState('');
@@ -591,9 +612,12 @@ function SprintsCard({
 
             {/* Active sprint highlight */}
             {activeSprint && (
-                <div className="mb-3 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                <div
+                    onClick={() => onSprintClick?.(activeSprint.id)}
+                    className="mb-3 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30 cursor-pointer hover:bg-yellow-500/20 transition-colors"
+                >
                     <div className="flex items-center gap-2 text-sm">
-                        <Zap className="h-3 w-3 text-yellow-400" />
+                        <Zap className="h-3 w-3 text-yellow-400 animate-pulse" />
                         <span className="text-yellow-400 font-medium">Activo:</span>
                         <span className="text-foreground">{activeSprint.name}</span>
                     </div>
@@ -611,7 +635,8 @@ function SprintsCard({
                 {sprints.filter(s => s.id !== activeSprint?.id).map((sprint) => (
                     <div
                         key={sprint.id}
-                        className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 group"
+                        onClick={() => onSprintClick?.(sprint.id)}
+                        className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 group cursor-pointer hover:bg-secondary/80 transition-colors"
                     >
                         <span className="text-xs font-mono text-muted-foreground">
                             SP{String(sprint.sprintNumber).padStart(2, '0')}
@@ -628,7 +653,7 @@ function SprintsCard({
                             {sprint.status}
                         </span>
                         <button
-                            onClick={() => onDeleteSprint(sprint.id)}
+                            onClick={(e) => { e.stopPropagation(); onDeleteSprint(sprint.id); }}
                             className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all"
                         >
                             <Trash2 className="h-3 w-3" />
@@ -969,6 +994,8 @@ export function ProjectDetailPage() {
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [projectNotes, setProjectNotes] = useState<string[]>([]);
+    const [selectedEpicId, setSelectedEpicId] = useState<number | null>(null);
+    const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
 
     // Queries
     const { data: project, isLoading: projectLoading, error: projectError } = useProject(projectId);
@@ -1149,11 +1176,13 @@ export function ProjectDetailPage() {
                             epics={epics}
                             onCreateEpic={handleCreateEpic}
                             onDeleteEpic={handleDeleteEpic}
+                            onEpicClick={setSelectedEpicId}
                         />
                         <SprintsCard
                             sprints={sprints}
                             onCreateSprint={handleCreateSprint}
                             onDeleteSprint={handleDeleteSprint}
+                            onSprintClick={setSelectedSprintId}
                         />
                     </div>
                 </div>
@@ -1175,6 +1204,15 @@ export function ProjectDetailPage() {
                         notes={projectNotes}
                         onAddNote={handleAddNote}
                     />
+
+                    {/* Roadmap Card */}
+                    <RoadmapCard
+                        epics={epics}
+                        sprints={sprints}
+                        projectId={projectId}
+                        onEpicClick={setSelectedEpicId}
+                        onSprintClick={setSelectedSprintId}
+                    />
                 </div>
             </div>
 
@@ -1192,6 +1230,20 @@ export function ProjectDetailPage() {
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
                 onSave={handleProjectSave}
+            />
+
+            {/* Epic Detail Modal */}
+            <EpicDetailModal
+                epicId={selectedEpicId}
+                isOpen={selectedEpicId !== null}
+                onClose={() => setSelectedEpicId(null)}
+            />
+
+            {/* Sprint Detail Modal */}
+            <SprintDetailModal
+                sprintId={selectedSprintId}
+                isOpen={selectedSprintId !== null}
+                onClose={() => setSelectedSprintId(null)}
             />
         </div>
     );
