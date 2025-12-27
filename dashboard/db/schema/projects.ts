@@ -60,6 +60,8 @@ export const projects = mysqlTable('projects', {
     // Stack (JSON array of tech names)
     stack: json('stack').$type<string[]>(), // ["React", "Node.js", "MariaDB"]
     createdBy: int('created_by').references(() => users.id, { onDelete: 'set null' }),
+    // Office CRM link
+    officeClientId: int('office_client_id'),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });

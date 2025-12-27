@@ -1,3 +1,4 @@
+export { useAuth } from './useAuth';
 export { useProjects, useProject } from './useProjects';
 export { useProjectMutations, useCreateProject, useUpdateProject, useDeleteProject } from './useProjectMutations';
 export { useDashboard } from './useDashboard';

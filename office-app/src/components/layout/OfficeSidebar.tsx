@@ -10,12 +10,14 @@ import {
     Palette,
     ChevronLeft,
     X,
+    UserCircle,
 } from 'lucide-react';
 import { cn } from '@lib/utils';
 import { useUIStore } from '@store/useUIStore';
 
 const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Mi Panel', href: '/my-dashboard', icon: UserCircle },
     { name: 'Proyectos', href: '/projects', icon: FolderKanban },
     { name: 'Clientes', href: '/clients', icon: Users },
     { name: 'Agentes', href: '/agents', icon: Bot },

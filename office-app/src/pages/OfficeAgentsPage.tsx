@@ -1,10 +1,10 @@
 /**
  * OfficeAgentsPage
  * Agents table separated by type: Humans and AI
+ * Enhanced with store integration and detail drawer
  */
 
-import { useState, useMemo } from 'react';
-import { useAgents } from '@hooks/useAgents';
+import { useMemo } from 'react';
 import { cn } from '@lib/utils';
 import {
     Plus,
@@ -17,30 +17,29 @@ import {
     AlertCircle,
     XCircle,
     Wrench,
+    Filter,
+    TrendingUp,
+    RefreshCw,
 } from 'lucide-react';
+import {
+    useAgentsStore,
+    useAgentsFiltered,
+    calculateAgentPerformance,
+    isAIAgent,
+    ROLE_LABELS,
+    STATUS_CONFIG,
+} from '@store/useAgentsStore';
+import { AgentDetailDrawer } from '@components/agents/AgentDetailDrawer';
+import { PermissionGate } from '@components/auth/PermissionGate';
 import type { Agent, AgentStatus, AgentRole } from '../types';
 
-// Agent status configuration
-const STATUS_CONFIG: Record<AgentStatus, { label: string; color: string; icon: React.ReactNode }> = {
-    active: { label: 'Activo', color: 'bg-green-100 text-green-700', icon: <CheckCircle className="h-4 w-4" /> },
-    busy: { label: 'Ocupado', color: 'bg-yellow-100 text-yellow-700', icon: <Clock className="h-4 w-4" /> },
-    inactive: { label: 'Inactivo', color: 'bg-gray-100 text-gray-700', icon: <XCircle className="h-4 w-4" /> },
-    error: { label: 'Error', color: 'bg-red-100 text-red-700', icon: <AlertCircle className="h-4 w-4" /> },
-    maintenance: { label: 'Mantenimiento', color: 'bg-purple-100 text-purple-700', icon: <Wrench className="h-4 w-4" /> },
-};
-
-// Agent role labels
-const ROLE_LABELS: Record<AgentRole, string> = {
-    project_manager: 'Project Manager',
-    architect: 'Arquitecto',
-    developer: 'Desarrollador',
-    tester: 'QA Tester',
-    analyst: 'Analista',
-    designer: 'Diseñador',
-    devops: 'DevOps',
-    technical_writer: 'Tech Writer',
-    security_auditor: 'Auditor Seguridad',
-    deployment_specialist: 'Deploy Specialist',
+// Status icons for badges
+const STATUS_ICONS: Record<AgentStatus, React.ReactNode> = {
+    active: <CheckCircle className="h-4 w-4" />,
+    busy: <Clock className="h-4 w-4" />,
+    inactive: <XCircle className="h-4 w-4" />,
+    error: <AlertCircle className="h-4 w-4" />,
+    maintenance: <Wrench className="h-4 w-4" />,
 };
 
 // Status Badge
@@ -48,19 +47,41 @@ function StatusBadge({ status }: { status: AgentStatus }) {
     const config = STATUS_CONFIG[status] || STATUS_CONFIG.inactive;
 
     return (
-        <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium', config.color)}>
-            {config.icon}
+        <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium', config.bgColor, config.color)}>
+            {STATUS_ICONS[status]}
             {config.label}
         </span>
     );
 }
 
-// Agent Card Component
-function AgentCard({ agent, isAI }: { agent: Agent; isAI: boolean }) {
-    const roleLabel = ROLE_LABELS[agent.role] || agent.role;
+// Performance Badge
+function PerformanceBadge({ rating }: { rating: 'excellent' | 'good' | 'average' | 'poor' }) {
+    const config = {
+        excellent: { color: 'text-green-600', bg: 'bg-green-50' },
+        good: { color: 'text-blue-600', bg: 'bg-blue-50' },
+        average: { color: 'text-yellow-600', bg: 'bg-yellow-50' },
+        poor: { color: 'text-red-600', bg: 'bg-red-50' },
+    };
 
     return (
-        <div className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-solaria-orange/30 hover:shadow-md">
+        <span className={cn('text-xs font-medium', config[rating].color)}>
+            <TrendingUp className="inline h-3 w-3 mr-0.5" />
+            {rating === 'excellent' ? 'Excelente' : rating === 'good' ? 'Bueno' : rating === 'average' ? 'Promedio' : 'Bajo'}
+        </span>
+    );
+}
+
+// Agent Card Component
+function AgentCard({ agent, onClick }: { agent: Agent; onClick: () => void }) {
+    const isAI = isAIAgent(agent);
+    const roleLabel = ROLE_LABELS[agent.role as AgentRole] || agent.role;
+    const performance = calculateAgentPerformance(agent);
+
+    return (
+        <div
+            onClick={onClick}
+            className="group relative cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-solaria-orange/30 hover:shadow-md"
+        >
             <div className="flex items-start gap-4">
                 {/* Avatar */}
                 <div className={cn(
@@ -76,13 +97,16 @@ function AgentCard({ agent, isAI }: { agent: Agent; isAI: boolean }) {
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-gray-900 truncate">{agent.name}</h3>
                         <StatusBadge status={agent.status} />
                     </div>
                     <p className="text-sm text-gray-500">{roleLabel}</p>
-                    {agent.description && (
-                        <p className="mt-1 text-xs text-gray-400 line-clamp-2">{agent.description}</p>
+                    {isAI && (
+                        <span className="inline-flex items-center gap-1 mt-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs text-purple-600">
+                            <Bot className="h-3 w-3" />
+                            Agente IA
+                        </span>
                     )}
                 </div>
             </div>
@@ -98,13 +122,25 @@ function AgentCard({ agent, isAI }: { agent: Agent; isAI: boolean }) {
                     <p className="text-xs text-gray-500">Completadas</p>
                 </div>
                 <div className="text-center flex-1">
-                    <p className="text-lg font-bold text-blue-600">
-                        {agent.tasks_assigned > 0
-                            ? Math.round((agent.tasks_completed / agent.tasks_assigned) * 100)
-                            : 0}%
+                    <p className={cn(
+                        'text-lg font-bold',
+                        performance.efficiency >= 90 ? 'text-green-600' :
+                        performance.efficiency >= 75 ? 'text-blue-600' :
+                        performance.efficiency >= 50 ? 'text-yellow-600' :
+                        'text-red-600'
+                    )}>
+                        {performance.efficiency}%
                     </p>
                     <p className="text-xs text-gray-500">Eficiencia</p>
                 </div>
+            </div>
+
+            {/* Performance indicator */}
+            <div className="mt-3 flex items-center justify-between">
+                <PerformanceBadge rating={performance.rating} />
+                <span className="text-xs text-gray-400 group-hover:text-solaria-orange transition-colors">
+                    Ver detalles →
+                </span>
             </div>
         </div>
     );
@@ -140,34 +176,43 @@ function SectionHeader({
 }
 
 export function OfficeAgentsPage() {
-    const { data: agents, isLoading, error } = useAgents();
-    const [searchQuery, setSearchQuery] = useState('');
-    const [_showCreateModal, setShowCreateModal] = useState(false);
+    const { filters, setFilter, openDrawer, resetFilters } = useAgentsStore();
+    const { data: agents, isLoading, error, refetch } = useAgentsFiltered(filters);
 
     // Separate agents by type (using name prefix convention: SOLARIA- for AI)
-    const { humanAgents, aiAgents } = useMemo(() => {
-        if (!agents) return { humanAgents: [], aiAgents: [] };
+    const { humanAgents, aiAgents, totals } = useMemo(() => {
+        if (!agents) return { humanAgents: [], aiAgents: [], totals: { humans: 0, humansActive: 0, ai: 0, aiActive: 0 } };
 
-        const filtered = searchQuery
-            ? agents.filter((a) =>
-                a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                a.role.toLowerCase().includes(searchQuery.toLowerCase())
-            )
-            : agents;
+        // Apply type filter from store
+        let filteredAgents = agents;
+        if (filters.type === 'human') {
+            filteredAgents = agents.filter((a) => !isAIAgent(a));
+        } else if (filters.type === 'ai') {
+            filteredAgents = agents.filter((a) => isAIAgent(a));
+        }
+
+        const humans = filteredAgents.filter((a) => !isAIAgent(a));
+        const ai = filteredAgents.filter((a) => isAIAgent(a));
 
         return {
-            humanAgents: filtered.filter((a) => !a.name.startsWith('SOLARIA-')),
-            aiAgents: filtered.filter((a) => a.name.startsWith('SOLARIA-')),
+            humanAgents: humans,
+            aiAgents: ai,
+            totals: {
+                humans: humans.length,
+                humansActive: humans.filter((a) => a.status === 'active').length,
+                ai: ai.length,
+                aiActive: ai.filter((a) => a.status === 'active').length,
+            },
         };
-    }, [agents, searchQuery]);
+    }, [agents, filters.type]);
 
-    // Totals
-    const totals = useMemo(() => ({
-        humans: humanAgents.length,
-        humansActive: humanAgents.filter((a) => a.status === 'active').length,
-        ai: aiAgents.length,
-        aiActive: aiAgents.filter((a) => a.status === 'active').length,
-    }), [humanAgents, aiAgents]);
+    // Handle opening agent detail
+    const handleAgentClick = (agentId: number) => {
+        openDrawer('view', agentId);
+    };
+
+    // Check if filters are active
+    const hasActiveFilters = filters.type !== 'all' || filters.status !== 'all' || filters.role !== 'all' || filters.search !== '';
 
     if (isLoading) {
         return (
@@ -192,6 +237,7 @@ export function OfficeAgentsPage() {
     }
 
     return (
+        <>
         <div className="space-y-8">
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -201,69 +247,146 @@ export function OfficeAgentsPage() {
                         {totals.humans} humanos | {totals.ai} IA | {totals.humansActive + totals.aiActive} activos
                     </p>
                 </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="inline-flex items-center gap-2 rounded-lg bg-solaria-orange px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-solaria-orange-dark"
-                >
-                    <Plus className="h-4 w-4" />
-                    Nuevo Agente
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => refetch()}
+                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+                        title="Actualizar"
+                    >
+                        <RefreshCw className="h-4 w-4" />
+                    </button>
+                    <PermissionGate permission="agents:create">
+                        <button
+                            className="inline-flex items-center gap-2 rounded-lg bg-solaria-orange px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-solaria-orange-dark"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Nuevo Agente
+                        </button>
+                    </PermissionGate>
+                </div>
             </div>
 
-            {/* Search */}
-            <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                    type="text"
-                    placeholder="Buscar agentes..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
-                />
+            {/* Filters Bar */}
+            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-white p-4">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Buscar agentes..."
+                        value={filters.search}
+                        onChange={(e) => setFilter('search', e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
+                    />
+                </div>
+
+                {/* Type Filter */}
+                <select
+                    value={filters.type}
+                    onChange={(e) => setFilter('type', e.target.value as 'all' | 'human' | 'ai')}
+                    className="rounded-lg border border-gray-300 py-2 pl-3 pr-8 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
+                >
+                    <option value="all">Todos los tipos</option>
+                    <option value="human">Humanos</option>
+                    <option value="ai">IA</option>
+                </select>
+
+                {/* Status Filter */}
+                <select
+                    value={filters.status}
+                    onChange={(e) => setFilter('status', e.target.value as AgentStatus | 'all')}
+                    className="rounded-lg border border-gray-300 py-2 pl-3 pr-8 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
+                >
+                    <option value="all">Todos los estados</option>
+                    <option value="active">Activo</option>
+                    <option value="busy">Ocupado</option>
+                    <option value="inactive">Inactivo</option>
+                    <option value="error">Error</option>
+                    <option value="maintenance">Mantenimiento</option>
+                </select>
+
+                {/* Role Filter */}
+                <select
+                    value={filters.role}
+                    onChange={(e) => setFilter('role', e.target.value as AgentRole | 'all')}
+                    className="rounded-lg border border-gray-300 py-2 pl-3 pr-8 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
+                >
+                    <option value="all">Todos los roles</option>
+                    {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                    ))}
+                </select>
+
+                {/* Reset Filters */}
+                {hasActiveFilters && (
+                    <button
+                        onClick={resetFilters}
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                        <Filter className="h-4 w-4" />
+                        Limpiar
+                    </button>
+                )}
             </div>
 
             {/* Human Agents Section */}
-            <section className="space-y-4">
-                <SectionHeader
-                    title="Equipo Humano"
-                    icon={<Users className="h-5 w-5 text-blue-600" />}
-                    count={totals.humans}
-                    activeCount={totals.humansActive}
-                />
-                {humanAgents.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {humanAgents.map((agent) => (
-                            <AgentCard key={agent.id} agent={agent} isAI={false} />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-500">
-                        No hay agentes humanos registrados
-                    </div>
-                )}
-            </section>
+            {(filters.type === 'all' || filters.type === 'human') && (
+                <section className="space-y-4">
+                    <SectionHeader
+                        title="Equipo Humano"
+                        icon={<Users className="h-5 w-5 text-blue-600" />}
+                        count={totals.humans}
+                        activeCount={totals.humansActive}
+                    />
+                    {humanAgents.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {humanAgents.map((agent) => (
+                                <AgentCard
+                                    key={agent.id}
+                                    agent={agent}
+                                    onClick={() => handleAgentClick(agent.id)}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-500">
+                            {hasActiveFilters ? 'No hay agentes que coincidan con los filtros' : 'No hay agentes humanos registrados'}
+                        </div>
+                    )}
+                </section>
+            )}
 
             {/* AI Agents Section */}
-            <section className="space-y-4">
-                <SectionHeader
-                    title="Agentes IA (SOLARIA)"
-                    icon={<Bot className="h-5 w-5 text-purple-600" />}
-                    count={totals.ai}
-                    activeCount={totals.aiActive}
-                />
-                {aiAgents.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {aiAgents.map((agent) => (
-                            <AgentCard key={agent.id} agent={agent} isAI={true} />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-500">
-                        No hay agentes IA registrados
-                    </div>
-                )}
-            </section>
+            {(filters.type === 'all' || filters.type === 'ai') && (
+                <section className="space-y-4">
+                    <SectionHeader
+                        title="Agentes IA (SOLARIA)"
+                        icon={<Bot className="h-5 w-5 text-purple-600" />}
+                        count={totals.ai}
+                        activeCount={totals.aiActive}
+                    />
+                    {aiAgents.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {aiAgents.map((agent) => (
+                                <AgentCard
+                                    key={agent.id}
+                                    agent={agent}
+                                    onClick={() => handleAgentClick(agent.id)}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-gray-500">
+                            {hasActiveFilters ? 'No hay agentes que coincidan con los filtros' : 'No hay agentes IA registrados'}
+                        </div>
+                    )}
+                </section>
+            )}
         </div>
+
+        {/* Agent Detail Drawer */}
+        <AgentDetailDrawer />
+        </>
     );
 }
 

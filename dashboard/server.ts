@@ -22,6 +22,8 @@ import 'dotenv/config';
 
 // Import services
 import { WebhookService } from './services/webhookService.js';
+import { OfficeClientsService } from './services/officeClientsService.js';
+import { PermissionsService, createRequirePermission, PERMISSION_CODES } from './services/permissionsService.js';
 
 // Import local types
 import type {
@@ -69,6 +71,9 @@ class SolariaDashboardServer {
     private _dbHealthInterval: ReturnType<typeof setInterval> | null;
     private workerUrl: string;
     private webhookService: WebhookService | null;
+    private officeClientsService: OfficeClientsService | null;
+    private permissionsService: PermissionsService | null;
+    private requirePermission: ReturnType<typeof createRequirePermission> | null;
 
     constructor() {
         this.app = express();
@@ -84,6 +89,9 @@ class SolariaDashboardServer {
         this._dbHealthInterval = null;
         this.workerUrl = process.env.WORKER_URL || 'http://worker:3032';
         this.webhookService = null;
+        this.officeClientsService = null;
+        this.permissionsService = null;
+        this.requirePermission = null;
 
         // Trust proxy for rate limiting behind nginx
         this.app.set('trust proxy', true);
@@ -151,6 +159,12 @@ class SolariaDashboardServer {
                 // Initialize webhook service
                 this.webhookService = new WebhookService(this.db);
                 console.log('WebhookService initialized');
+
+                // Initialize Office services
+                this.officeClientsService = new OfficeClientsService(this.db);
+                this.permissionsService = new PermissionsService(this.db);
+                this.requirePermission = createRequirePermission(this.db);
+                console.log('Office services initialized');
                 return;
 
             } catch (error) {
@@ -438,6 +452,51 @@ class SolariaDashboardServer {
         this.app.post('/api/webhooks/:id/test', this.testWebhook.bind(this));
         this.app.put('/api/webhooks/:id', this.updateWebhook.bind(this));
         this.app.delete('/api/webhooks/:id', this.deleteWebhook.bind(this));
+
+        // ====================================================================
+        // Office CRM API
+        // ====================================================================
+
+        // Office Clients
+        this.app.get('/api/office/clients', this.getOfficeClients.bind(this));
+        this.app.get('/api/office/clients/stats', this.getOfficeClientStats.bind(this));
+        this.app.get('/api/office/clients/industries', this.getOfficeClientIndustries.bind(this));
+        this.app.get('/api/office/clients/:id', this.getOfficeClient.bind(this));
+        this.app.post('/api/office/clients', this.createOfficeClient.bind(this));
+        this.app.put('/api/office/clients/:id', this.updateOfficeClient.bind(this));
+        this.app.delete('/api/office/clients/:id', this.deleteOfficeClient.bind(this));
+
+        // Office Client Contacts
+        this.app.get('/api/office/clients/:id/contacts', this.getOfficeClientContacts.bind(this));
+        this.app.post('/api/office/clients/:id/contacts', this.createOfficeClientContact.bind(this));
+        this.app.put('/api/office/clients/:clientId/contacts/:contactId', this.updateOfficeClientContact.bind(this));
+        this.app.delete('/api/office/clients/:clientId/contacts/:contactId', this.deleteOfficeClientContact.bind(this));
+
+        // Office Client Projects
+        this.app.get('/api/office/clients/:id/projects', this.getOfficeClientProjects.bind(this));
+        this.app.post('/api/office/clients/:id/projects', this.assignProjectToOfficeClient.bind(this));
+
+        // Office Client Payments
+        this.app.get('/api/office/clients/:id/payments', this.getOfficeClientPayments.bind(this));
+        this.app.post('/api/office/payments', this.createOfficePayment.bind(this));
+        this.app.put('/api/office/payments/:id', this.updateOfficePayment.bind(this));
+
+        // Office Projects (filtered by office_visible)
+        this.app.get('/api/office/projects', this.getOfficeProjects.bind(this));
+        this.app.put('/api/office/projects/:id/visibility', this.toggleOfficeProjectVisibility.bind(this));
+
+        // Office Dashboard
+        this.app.get('/api/office/dashboard', this.getOfficeDashboard.bind(this));
+
+        // Permissions API
+        this.app.get('/api/office/permissions', this.getAllPermissions.bind(this));
+        this.app.get('/api/office/permissions/my', this.getMyPermissions.bind(this));
+        this.app.get('/api/office/roles/:role/permissions', this.getRolePermissions.bind(this));
+        this.app.put('/api/office/roles/:role/permissions', this.updateRolePermissions.bind(this));
+
+        // User Preferences
+        this.app.get('/api/office/preferences', this.getUserPreferences.bind(this));
+        this.app.put('/api/office/preferences', this.updateUserPreferences.bind(this));
 
         // Static files
         this.app.use(express.static(path.join(__dirname, 'public')));
@@ -5760,6 +5819,312 @@ class SolariaDashboardServer {
         }
 
         await this.webhookService.dispatch(eventType, data, projectId);
+    }
+
+    // ========================================================================
+    // Office CRM Handlers
+    // ========================================================================
+
+    private async getOfficeClients(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const filters = {
+                status: req.query.status as string,
+                industry: req.query.industry as string,
+                company_size: req.query.company_size as string,
+                assigned_to: req.query.assigned_to ? parseInt(req.query.assigned_to as string) : undefined,
+                search: req.query.search as string,
+                limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+                offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
+            };
+            const result = await this.officeClientsService!.getClients(filters);
+            res.json(result);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getOfficeClient(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const client = await this.officeClientsService!.getClient(parseInt(req.params.id));
+            if (!client) {
+                res.status(404).json({ error: 'Client not found' });
+                return;
+            }
+            res.json(client);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async createOfficeClient(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const data = { ...req.body, created_by: req.user?.userId };
+            const id = await this.officeClientsService!.createClient(data);
+            const client = await this.officeClientsService!.getClient(id);
+            res.status(201).json(client);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async updateOfficeClient(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            await this.officeClientsService!.updateClient(parseInt(req.params.id), req.body);
+            const client = await this.officeClientsService!.getClient(parseInt(req.params.id));
+            res.json(client);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async deleteOfficeClient(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            await this.officeClientsService!.deleteClient(parseInt(req.params.id));
+            res.json({ message: 'Client deleted successfully' });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getOfficeClientStats(_req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const stats = await this.officeClientsService!.getClientStats();
+            res.json(stats);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getOfficeClientIndustries(_req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const industries = await this.officeClientsService!.getIndustries();
+            res.json(industries);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getOfficeClientContacts(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const contacts = await this.officeClientsService!.getClientContacts(parseInt(req.params.id));
+            res.json(contacts);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async createOfficeClientContact(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const id = await this.officeClientsService!.createContact(parseInt(req.params.id), req.body);
+            const contact = await this.officeClientsService!.getContact(id);
+            res.status(201).json(contact);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async updateOfficeClientContact(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            await this.officeClientsService!.updateContact(parseInt(req.params.contactId), req.body);
+            const contact = await this.officeClientsService!.getContact(parseInt(req.params.contactId));
+            res.json(contact);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async deleteOfficeClientContact(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            await this.officeClientsService!.deleteContact(parseInt(req.params.contactId));
+            res.json({ message: 'Contact deleted successfully' });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getOfficeClientProjects(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const projects = await this.officeClientsService!.getClientProjects(parseInt(req.params.id));
+            res.json(projects);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async assignProjectToOfficeClient(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const { project_id } = req.body;
+            await this.officeClientsService!.assignProjectToClient(parseInt(req.params.id), project_id);
+            res.json({ message: 'Project assigned successfully' });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getOfficeClientPayments(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const payments = await this.officeClientsService!.getClientPayments(parseInt(req.params.id));
+            res.json(payments);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async createOfficePayment(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const data = { ...req.body, created_by: req.user?.userId };
+            const id = await this.officeClientsService!.createPayment(data);
+            res.status(201).json({ id, message: 'Payment created successfully' });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async updateOfficePayment(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            await this.officeClientsService!.updatePayment(parseInt(req.params.id), req.body);
+            res.json({ message: 'Payment updated successfully' });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getOfficeProjects(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const [rows] = await this.db!.execute<RowDataPacket[]>(`
+                SELECT p.*, c.name as client_name
+                FROM projects p
+                LEFT JOIN office_clients c ON p.office_client_id = c.id
+                WHERE p.office_visible = 1
+                ORDER BY p.updated_at DESC
+            `);
+            res.json({ projects: rows });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async toggleOfficeProjectVisibility(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const { visible } = req.body;
+            await this.db!.execute(
+                'UPDATE projects SET office_visible = ? WHERE id = ?',
+                [visible ? 1 : 0, req.params.id]
+            );
+            res.json({ message: 'Project visibility updated' });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getOfficeDashboard(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const clientStats = await this.officeClientsService!.getClientStats();
+
+            const [projectStats] = await this.db!.execute<RowDataPacket[]>(`
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'development' THEN 1 ELSE 0 END) as in_progress,
+                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                    SUM(budget) as total_budget
+                FROM projects WHERE office_visible = 1
+            `);
+
+            const [recentActivity] = await this.db!.execute<RowDataPacket[]>(`
+                SELECT * FROM activity_logs
+                ORDER BY created_at DESC
+                LIMIT 10
+            `);
+
+            res.json({
+                clients: clientStats,
+                projects: projectStats[0],
+                recent_activity: recentActivity,
+            });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getAllPermissions(_req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const permissions = await this.permissionsService!.getAllPermissions();
+            res.json(permissions);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getMyPermissions(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const role = req.user?.role || 'viewer';
+            const permissions = await this.permissionsService!.getRolePermissions(role);
+            res.json({ role, permissions: Array.from(permissions) });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getRolePermissions(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const mappings = await this.permissionsService!.getRolePermissionMappings(req.params.role);
+            res.json(mappings);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async updateRolePermissions(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const { permission_ids } = req.body;
+            await this.permissionsService!.updateRolePermissions(req.params.role, permission_ids);
+            res.json({ message: 'Role permissions updated' });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async getUserPreferences(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            const prefs = await this.permissionsService!.getUserPreferences(req.user!.userId);
+            res.json(prefs || { default_view: 'cards', theme: 'light' });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
+    }
+
+    private async updateUserPreferences(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            await this.permissionsService!.updateUserPreferences(req.user!.userId, req.body);
+            res.json({ message: 'Preferences updated' });
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: msg });
+        }
     }
 
     // ========================================================================

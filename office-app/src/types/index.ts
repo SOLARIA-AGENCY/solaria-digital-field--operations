@@ -60,6 +60,8 @@ export interface Agent {
     avatar_url?: string;
     tasks_assigned: number;
     tasks_completed: number;
+    created_at: string;
+    updated_at: string;
 }
 
 export type AgentRole =
