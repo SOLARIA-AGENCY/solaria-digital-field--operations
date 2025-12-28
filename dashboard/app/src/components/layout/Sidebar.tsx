@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils';
+import VERSION from '@/version';
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -25,6 +26,12 @@ const navigation = [
 ];
 
 const externalLinks = [
+    {
+        name: 'n8n Workflows',
+        href: 'https://n8n.solaria.agency',
+        icon: ExternalLink,
+        color: 'text-orange-400'
+    },
     {
         name: 'VibeSDK',
         href: 'https://docs.vibe-sdk.com',
@@ -152,7 +159,9 @@ export function Sidebar() {
                             <span className="solaria-text-gradient font-semibold">SOLARIA</span>
                             <span> DFO</span>
                         </div>
-                        <div className="mt-1 text-[10px] text-muted-foreground">v3.5.1</div>
+                        <div className="mt-1 text-[10px] text-muted-foreground font-mono">
+                            {VERSION.full}
+                        </div>
                     </div>
                 </div>
             )}
