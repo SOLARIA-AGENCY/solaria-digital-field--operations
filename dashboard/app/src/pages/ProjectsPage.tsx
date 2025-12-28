@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
     Plus,
     LayoutGrid,
@@ -244,7 +244,6 @@ function ProjectRow({ project, onClick }: { project: Project; onClick: () => voi
 }
 
 export function ProjectsPage() {
-    const { projectId } = useParams();
     const navigate = useNavigate();
     const { data: projects, isLoading } = useProjects();
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -331,33 +330,6 @@ export function ProjectsPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
         );
-    }
-
-    // If we have a projectId, show project detail (TODO: implement)
-    if (projectId) {
-        const project = projects?.find((p: Project) => p.id === parseInt(projectId));
-        if (project) {
-            return (
-                <div className="space-y-6">
-                    <div className="section-header">
-                        <div>
-                            <h1 className="section-title">{project.name}</h1>
-                            <p className="section-subtitle">{project.code} - {project.description}</p>
-                        </div>
-                        <button
-                            onClick={() => navigate('/projects')}
-                            className="btn-secondary"
-                        >
-                            Volver
-                        </button>
-                    </div>
-                    {/* TODO: Project detail view */}
-                    <div className="bg-card border border-border rounded-xl p-6">
-                        <p className="text-muted-foreground">Vista detallada del proyecto (en desarrollo)</p>
-                    </div>
-                </div>
-            );
-        }
     }
 
     return (
