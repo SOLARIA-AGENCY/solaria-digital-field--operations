@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useTasks, useProjects } from '@/hooks/useApi';
 import { TaskCard, GanttView, TaskDetailDrawer } from '@/components/tasks';
-import { cn, formatRelativeTime, getPriorityColor, getStatusColor } from '@/lib/utils';
+import { cn, getPriorityColor, getStatusColor } from '@/lib/utils';
 import type { Task, Project } from '@/types';
 
 type ViewMode = 'kanban' | 'list' | 'gantt';
@@ -87,7 +87,6 @@ function ListView({
                         <th>Prioridad</th>
                         <th>Progreso</th>
                         <th>Subtareas</th>
-                        <th>Actualizado</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -138,9 +137,6 @@ function ListView({
                                 <span className="text-sm">
                                     {task.itemsCompleted || 0}/{task.itemsTotal || 0}
                                 </span>
-                            </td>
-                            <td className="text-muted-foreground">
-                                {formatRelativeTime(task.updatedAt)}
                             </td>
                         </tr>
                     ))}
