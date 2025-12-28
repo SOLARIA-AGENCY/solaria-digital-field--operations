@@ -1,514 +1,688 @@
-/**
- * SettingsPage
- * User settings, preferences, and admin management
- */
-
 import { useState } from 'react';
-import { useAuth } from '@hooks/useAuth';
-import { PermissionGate } from '@components/auth/PermissionGate';
-import { cn } from '@lib/utils';
 import {
     User,
+    Mail,
+    Phone,
     Lock,
     Bell,
     Palette,
     Globe,
     Shield,
     Users,
-    Database,
-    Check,
-    Save,
     Key,
+    Settings,
+    Save,
+    Camera,
     Eye,
     EyeOff,
+    Check,
     ChevronRight,
+    AlertCircle,
+    Activity,
+    Database,
+    Server,
+    RefreshCw,
+    Trash2,
+    Plus,
+    Edit,
+    Search
 } from 'lucide-react';
 
-// Settings sections
-const SETTINGS_SECTIONS = [
-    { id: 'profile', name: 'Perfil', icon: User, description: 'Informacion personal y cuenta' },
-    { id: 'security', name: 'Seguridad', icon: Lock, description: 'Contrasena y autenticacion' },
-    { id: 'notifications', name: 'Notificaciones', icon: Bell, description: 'Preferencias de alertas' },
-    { id: 'appearance', name: 'Apariencia', icon: Palette, description: 'Tema y visualizacion' },
-    { id: 'language', name: 'Idioma', icon: Globe, description: 'Idioma y region' },
+// ============================================
+// MOCK DATA
+// ============================================
+
+const MOCK_USER = {
+    id: 1,
+    name: 'Carlos J. Pérez',
+    email: 'charlie@solaria.agency',
+    phone: '+52 81 1234 5678',
+    role: 'ceo',
+    avatar: null,
+    timezone: 'America/Mexico_City',
+    language: 'es',
+    created_at: '2024-01-15T10:00:00Z',
+};
+
+const MOCK_PREFERENCES = {
+    default_view: 'cards',
+    sidebar_collapsed: false,
+    theme: 'light',
+    notifications_enabled: true,
+    email_notifications: true,
+    sound_enabled: false,
+    auto_refresh: true,
+    refresh_interval: 30,
+};
+
+const MOCK_USERS = [
+    { id: 1, name: 'Carlos J. Pérez', email: 'charlie@solaria.agency', role: 'ceo', status: 'active', last_login: '2025-12-26T15:00:00Z' },
+    { id: 2, name: 'María González', email: 'maria@solaria.agency', role: 'manager', status: 'active', last_login: '2025-12-26T10:00:00Z' },
+    { id: 3, name: 'Roberto Sánchez', email: 'roberto@solaria.agency', role: 'agent', status: 'active', last_login: '2025-12-25T18:00:00Z' },
+    { id: 4, name: 'Ana López', email: 'ana@solaria.agency', role: 'viewer', status: 'inactive', last_login: '2025-12-20T12:00:00Z' },
 ];
 
-const ADMIN_SECTIONS = [
-    { id: 'roles', name: 'Roles y Permisos', icon: Shield, description: 'Gestion de accesos' },
-    { id: 'users', name: 'Usuarios', icon: Users, description: 'Administrar usuarios' },
-    { id: 'system', name: 'Sistema', icon: Database, description: 'Configuracion avanzada' },
+const MOCK_ROLES = [
+    { code: 'ceo', name: 'CEO', description: 'Acceso completo al sistema', users_count: 1, permissions_count: 29 },
+    { code: 'cto', name: 'CTO', description: 'Acceso técnico completo', users_count: 0, permissions_count: 28 },
+    { code: 'coo', name: 'COO', description: 'Operaciones y gestión', users_count: 0, permissions_count: 22 },
+    { code: 'cfo', name: 'CFO', description: 'Finanzas y reportes', users_count: 0, permissions_count: 18 },
+    { code: 'admin', name: 'Admin', description: 'Administrador del sistema', users_count: 0, permissions_count: 29 },
+    { code: 'manager', name: 'Manager', description: 'Gestión de equipos', users_count: 1, permissions_count: 20 },
+    { code: 'agent', name: 'Agent', description: 'Trabajo en tareas asignadas', users_count: 1, permissions_count: 8 },
+    { code: 'viewer', name: 'Viewer', description: 'Solo lectura', users_count: 1, permissions_count: 10 },
 ];
 
-// Toggle Switch Component
-function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (value: boolean) => void }) {
+const MOCK_PERMISSIONS = [
+    { category: 'projects', permissions: ['projects.view', 'projects.create', 'projects.edit', 'projects.delete', 'projects.manage_team'] },
+    { category: 'clients', permissions: ['clients.view', 'clients.create', 'clients.edit', 'clients.delete'] },
+    { category: 'tasks', permissions: ['tasks.view', 'tasks.create', 'tasks.edit', 'tasks.delete', 'tasks.assign'] },
+    { category: 'agents', permissions: ['agents.view', 'agents.manage'] },
+    { category: 'analytics', permissions: ['analytics.view', 'analytics.export'] },
+    { category: 'reports', permissions: ['reports.view', 'reports.create', 'reports.export'] },
+    { category: 'payments', permissions: ['payments.view', 'payments.create', 'payments.edit'] },
+    { category: 'settings', permissions: ['settings.view', 'settings.edit'] },
+    { category: 'admin', permissions: ['admin.users', 'admin.roles', 'admin.system'] },
+];
+
+const MOCK_SYSTEM_INFO = {
+    version: '3.5.0',
+    environment: 'production',
+    database: {
+        status: 'connected',
+        type: 'MariaDB',
+        version: '11.4',
+        connections: 5,
+    },
+    api: {
+        status: 'healthy',
+        uptime: '99.9%',
+        requests_today: 12450,
+    },
+    storage: {
+        used: '2.3 GB',
+        total: '50 GB',
+        percentage: 4.6,
+    },
+};
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+function formatDate(dateStr: string): string {
+    return new Date(dateStr).toLocaleDateString('es-MX', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    });
+}
+
+function formatRelativeDate(dateStr: string): string {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 60) return `hace ${diffMins} min`;
+    if (diffHours < 24) return `hace ${diffHours}h`;
+    if (diffDays < 7) return `hace ${diffDays}d`;
+    return formatDate(dateStr);
+}
+
+// ============================================
+// SUB-COMPONENTS
+// ============================================
+
+function RoleBadge({ role }: { role: string }) {
+    const config: Record<string, { label: string; className: string }> = {
+        ceo: { label: 'CEO', className: 'bg-purple-100 text-purple-700' },
+        cto: { label: 'CTO', className: 'bg-blue-100 text-blue-700' },
+        coo: { label: 'COO', className: 'bg-green-100 text-green-700' },
+        cfo: { label: 'CFO', className: 'bg-yellow-100 text-yellow-700' },
+        admin: { label: 'Admin', className: 'bg-red-100 text-red-700' },
+        manager: { label: 'Manager', className: 'bg-orange-100 text-orange-700' },
+        agent: { label: 'Agent', className: 'bg-gray-100 text-gray-700' },
+        viewer: { label: 'Viewer', className: 'bg-gray-100 text-gray-600' },
+    };
+
+    const { label, className } = config[role] || config.viewer;
+
+    return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${className}`}>
+            {label}
+        </span>
+    );
+}
+
+function StatusBadge({ status }: { status: string }) {
+    return (
+        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${
+            status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+        }`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`} />
+            {status === 'active' ? 'Activo' : 'Inactivo'}
+        </span>
+    );
+}
+
+type SectionType = 'profile' | 'preferences' | 'security' | 'users' | 'roles' | 'system';
+
+interface NavItemProps {
+    active: boolean;
+    onClick: () => void;
+    icon: typeof User;
+    label: string;
+    description: string;
+    adminOnly?: boolean;
+}
+
+function NavItem({ active, onClick, icon: Icon, label, description, adminOnly }: NavItemProps) {
     return (
         <button
-            onClick={() => onChange(!enabled)}
-            className={cn(
-                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                enabled ? 'bg-solaria-orange' : 'bg-gray-200'
-            )}
+            onClick={onClick}
+            className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
+                active
+                    ? 'bg-solaria-orange/10 border border-solaria-orange/20'
+                    : 'hover:bg-gray-50'
+            }`}
         >
-            <span
-                className={cn(
-                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
-                    enabled ? 'translate-x-6' : 'translate-x-1'
-                )}
-            />
+            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                active ? 'bg-solaria-orange text-white' : 'bg-gray-100 text-gray-600'
+            }`}>
+                <Icon className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className={`font-medium ${active ? 'text-solaria-orange' : 'text-gray-900'}`}>
+                    {label}
+                    {adminOnly && (
+                        <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded">Admin</span>
+                    )}
+                </p>
+                <p className="text-xs text-gray-500 truncate">{description}</p>
+            </div>
+            <ChevronRight className={`h-4 w-4 ${active ? 'text-solaria-orange' : 'text-gray-400'}`} />
         </button>
     );
 }
 
-// Setting Row Component
-function SettingRow({
-    label,
-    description,
-    children,
-}: {
-    label: string;
-    description?: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <div className="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
-            <div>
-                <p className="font-medium text-gray-900">{label}</p>
-                {description && <p className="text-sm text-gray-500">{description}</p>}
-            </div>
-            <div>{children}</div>
-        </div>
-    );
-}
+// ============================================
+// SECTION COMPONENTS
+// ============================================
 
-// Profile Settings Section
-function ProfileSettings() {
-    const { user } = useAuth();
-    const [formData, setFormData] = useState({
-        name: user?.name || '',
-        email: user?.email || '',
-        phone: '',
-        bio: '',
-    });
-
-    const handleSave = () => {
-        alert('Perfil actualizado');
-    };
+function ProfileSection({ user }: { user: typeof MOCK_USER }) {
+    const [showPassword, setShowPassword] = useState(false);
 
     return (
         <div className="space-y-6">
             <div>
-                <h3 className="text-lg font-semibold text-gray-900">Perfil</h3>
-                <p className="text-sm text-gray-500">Actualiza tu informacion personal</p>
+                <h2 className="text-xl font-semibold text-gray-900">Perfil</h2>
+                <p className="text-sm text-gray-500">Administra tu información personal</p>
             </div>
 
             {/* Avatar */}
-            <div className="flex items-center gap-4">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-solaria-orange/10">
-                    <User className="h-10 w-10 text-solaria-orange" />
-                </div>
-                <div>
-                    <button className="text-sm font-medium text-solaria-orange hover:underline">
-                        Cambiar foto
+            <div className="flex items-center gap-6 p-6 bg-gray-50 rounded-xl">
+                <div className="relative">
+                    <div className="h-24 w-24 rounded-2xl bg-gradient-to-br from-solaria-orange/20 to-solaria-orange/10 flex items-center justify-center">
+                        <User className="h-12 w-12 text-solaria-orange" />
+                    </div>
+                    <button className="absolute -bottom-2 -right-2 h-8 w-8 bg-white rounded-full border border-gray-200 flex items-center justify-center shadow-sm hover:bg-gray-50">
+                        <Camera className="h-4 w-4 text-gray-600" />
                     </button>
-                    <p className="text-xs text-gray-500 mt-1">JPG, PNG o GIF. Max 2MB.</p>
+                </div>
+                <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{user.name}</h3>
+                    <p className="text-gray-500">{user.email}</p>
+                    <RoleBadge role={user.role} />
                 </div>
             </div>
 
-            {/* Form */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-                    <input
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
-                    />
+            {/* Profile Form */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Nombre Completo</label>
+                        <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                                type="text"
+                                defaultValue={user.name}
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-solaria-orange/20 focus:border-solaria-orange"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                                type="email"
+                                defaultValue={user.email}
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-solaria-orange/20 focus:border-solaria-orange"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono</label>
+                        <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <input
+                                type="tel"
+                                defaultValue={user.phone}
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-solaria-orange/20 focus:border-solaria-orange"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Zona Horaria</label>
+                        <div className="relative">
+                            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <select
+                                defaultValue={user.timezone}
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-solaria-orange/20 focus:border-solaria-orange appearance-none"
+                            >
+                                <option value="America/Mexico_City">Ciudad de México (GMT-6)</option>
+                                <option value="America/Monterrey">Monterrey (GMT-6)</option>
+                                <option value="America/Cancun">Cancún (GMT-5)</option>
+                                <option value="America/Los_Angeles">Los Ángeles (GMT-8)</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-                    <input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="+52 555 123 4567"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
-                    <input
-                        type="text"
-                        value={user?.role || 'User'}
-                        disabled
-                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500"
-                    />
+
+                <div className="pt-4 border-t border-gray-200">
+                    <button className="inline-flex items-center gap-2 px-4 py-2 bg-solaria-orange text-white rounded-lg text-sm font-medium hover:bg-solaria-orange-dark transition-colors">
+                        <Save className="h-4 w-4" />
+                        Guardar Cambios
+                    </button>
                 </div>
             </div>
 
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
-                <textarea
-                    value={formData.bio}
-                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                    rows={3}
-                    placeholder="Una breve descripcion sobre ti..."
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
-                />
-            </div>
+            {/* Password Change */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                    Cambiar Contraseña
+                </h3>
 
-            <button
-                onClick={handleSave}
-                className="inline-flex items-center gap-2 rounded-lg bg-solaria-orange px-4 py-2 text-sm font-medium text-white hover:bg-solaria-orange-dark"
-            >
-                <Save className="h-4 w-4" />
-                Guardar Cambios
-            </button>
-        </div>
-    );
-}
-
-// Security Settings Section
-function SecuritySettings() {
-    const [showPassword, setShowPassword] = useState(false);
-    const [passwords, setPasswords] = useState({
-        current: '',
-        new: '',
-        confirm: '',
-    });
-
-    return (
-        <div className="space-y-6">
-            <div>
-                <h3 className="text-lg font-semibold text-gray-900">Seguridad</h3>
-                <p className="text-sm text-gray-500">Administra tu contrasena y seguridad</p>
-            </div>
-
-            {/* Change Password */}
-            <div className="rounded-lg border border-gray-200 p-5">
-                <h4 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
-                    <Key className="h-4 w-4 text-gray-400" />
-                    Cambiar Contrasena
-                </h4>
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Contrasena actual</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña Actual</label>
                         <div className="relative">
                             <input
                                 type={showPassword ? 'text' : 'password'}
-                                value={passwords.current}
-                                onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
+                                placeholder="••••••••"
+                                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-solaria-orange/20 focus:border-solaria-orange pr-10"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                             >
                                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nueva contrasena</label>
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={passwords.new}
-                            onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar contrasena</label>
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={passwords.confirm}
-                            onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
-                        />
-                    </div>
-                    <button className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800">
-                        Actualizar Contrasena
-                    </button>
-                </div>
-            </div>
-
-            {/* Two Factor */}
-            <div className="rounded-lg border border-gray-200 p-5">
-                <SettingRow
-                    label="Autenticacion de dos factores"
-                    description="Agrega una capa extra de seguridad a tu cuenta"
-                >
-                    <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                        Configurar
-                    </button>
-                </SettingRow>
-            </div>
-
-            {/* Sessions */}
-            <div className="rounded-lg border border-gray-200 p-5">
-                <h4 className="font-medium text-gray-900 mb-4">Sesiones Activas</h4>
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between py-2">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
-                                <Check className="h-4 w-4 text-green-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-gray-900">Este dispositivo</p>
-                                <p className="text-xs text-gray-500">macOS • Chrome • Mexico City</p>
-                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Nueva Contraseña</label>
+                            <input
+                                type="password"
+                                placeholder="••••••••"
+                                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-solaria-orange/20 focus:border-solaria-orange"
+                            />
                         </div>
-                        <span className="text-xs text-green-600">Activo ahora</span>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Confirmar Contraseña</label>
+                            <input
+                                type="password"
+                                placeholder="••••••••"
+                                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-solaria-orange/20 focus:border-solaria-orange"
+                            />
+                        </div>
                     </div>
                 </div>
-                <button className="mt-4 text-sm text-red-600 hover:underline">
-                    Cerrar todas las sesiones
+
+                <div className="pt-4 border-t border-gray-200">
+                    <button className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
+                        <Lock className="h-4 w-4" />
+                        Actualizar Contraseña
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function PreferencesSection({ preferences }: { preferences: typeof MOCK_PREFERENCES }) {
+    return (
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-xl font-semibold text-gray-900">Preferencias</h2>
+                <p className="text-sm text-gray-500">Personaliza tu experiencia</p>
+            </div>
+
+            {/* Display */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Palette className="h-5 w-5 text-gray-400" />
+                    Visualización
+                </h3>
+
+                <div className="space-y-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">Tema</label>
+                        <div className="grid grid-cols-3 gap-4">
+                            {['light', 'dark', 'system'].map((theme) => (
+                                <button
+                                    key={theme}
+                                    className={`p-4 rounded-lg border-2 transition-colors ${
+                                        preferences.theme === theme
+                                            ? 'border-solaria-orange bg-solaria-orange/5'
+                                            : 'border-gray-200 hover:border-gray-300'
+                                    }`}
+                                >
+                                    <div className={`h-8 w-full rounded mb-2 ${
+                                        theme === 'light' ? 'bg-white border' :
+                                        theme === 'dark' ? 'bg-gray-900' :
+                                        'bg-gradient-to-r from-white to-gray-900'
+                                    }`} />
+                                    <p className="text-sm font-medium capitalize">{theme === 'system' ? 'Sistema' : theme === 'light' ? 'Claro' : 'Oscuro'}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">Vista Predeterminada</label>
+                        <div className="flex gap-4">
+                            {[
+                                { value: 'cards', label: 'Tarjetas' },
+                                { value: 'list', label: 'Lista' },
+                                { value: 'kanban', label: 'Kanban' },
+                            ].map((view) => (
+                                <label key={view.value} className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="default_view"
+                                        value={view.value}
+                                        defaultChecked={preferences.default_view === view.value}
+                                        className="text-solaria-orange focus:ring-solaria-orange"
+                                    />
+                                    <span className="text-sm text-gray-700">{view.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-gray-900">Sidebar Colapsado</p>
+                            <p className="text-sm text-gray-500">Iniciar con el menú lateral minimizado</p>
+                        </div>
+                        <button
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                preferences.sidebar_collapsed ? 'bg-solaria-orange' : 'bg-gray-200'
+                            }`}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    preferences.sidebar_collapsed ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Notifications */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Bell className="h-5 w-5 text-gray-400" />
+                    Notificaciones
+                </h3>
+
+                <div className="space-y-4">
+                    {[
+                        { key: 'notifications_enabled', label: 'Notificaciones Push', desc: 'Recibir notificaciones en el navegador', value: preferences.notifications_enabled },
+                        { key: 'email_notifications', label: 'Notificaciones por Email', desc: 'Recibir resúmenes y alertas por email', value: preferences.email_notifications },
+                        { key: 'sound_enabled', label: 'Sonidos', desc: 'Reproducir sonido al recibir notificaciones', value: preferences.sound_enabled },
+                    ].map((item) => (
+                        <div key={item.key} className="flex items-center justify-between py-2">
+                            <div>
+                                <p className="font-medium text-gray-900">{item.label}</p>
+                                <p className="text-sm text-gray-500">{item.desc}</p>
+                            </div>
+                            <button
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    item.value ? 'bg-solaria-orange' : 'bg-gray-200'
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        item.value ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                                />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Auto-refresh */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <RefreshCw className="h-5 w-5 text-gray-400" />
+                    Auto-Actualización
+                </h3>
+
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-gray-900">Actualización Automática</p>
+                            <p className="text-sm text-gray-500">Actualizar datos automáticamente</p>
+                        </div>
+                        <button
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                preferences.auto_refresh ? 'bg-solaria-orange' : 'bg-gray-200'
+                            }`}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    preferences.auto_refresh ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
+                        </button>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Intervalo de Actualización</label>
+                        <select
+                            defaultValue={preferences.refresh_interval}
+                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-solaria-orange/20 focus:border-solaria-orange"
+                        >
+                            <option value="15">15 segundos</option>
+                            <option value="30">30 segundos</option>
+                            <option value="60">1 minuto</option>
+                            <option value="300">5 minutos</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div className="pt-4">
+                <button className="inline-flex items-center gap-2 px-4 py-2 bg-solaria-orange text-white rounded-lg text-sm font-medium hover:bg-solaria-orange-dark transition-colors">
+                    <Save className="h-4 w-4" />
+                    Guardar Preferencias
                 </button>
             </div>
         </div>
     );
 }
 
-// Notifications Settings Section
-function NotificationSettings() {
-    const [settings, setSettings] = useState({
-        emailNotifications: true,
-        taskAssigned: true,
-        taskCompleted: true,
-        projectUpdates: true,
-        weeklyDigest: false,
-        marketingEmails: false,
-    });
-
+function SecuritySection() {
     return (
         <div className="space-y-6">
             <div>
-                <h3 className="text-lg font-semibold text-gray-900">Notificaciones</h3>
-                <p className="text-sm text-gray-500">Configura tus preferencias de notificacion</p>
+                <h2 className="text-xl font-semibold text-gray-900">Seguridad</h2>
+                <p className="text-sm text-gray-500">Configura opciones de seguridad de tu cuenta</p>
             </div>
 
-            <div className="rounded-lg border border-gray-200 p-5 space-y-1">
-                <SettingRow label="Notificaciones por email" description="Recibe alertas en tu correo">
-                    <Toggle
-                        enabled={settings.emailNotifications}
-                        onChange={(v) => setSettings({ ...settings, emailNotifications: v })}
-                    />
-                </SettingRow>
-                <SettingRow label="Tarea asignada" description="Cuando te asignan una nueva tarea">
-                    <Toggle
-                        enabled={settings.taskAssigned}
-                        onChange={(v) => setSettings({ ...settings, taskAssigned: v })}
-                    />
-                </SettingRow>
-                <SettingRow label="Tarea completada" description="Cuando una tarea relacionada se completa">
-                    <Toggle
-                        enabled={settings.taskCompleted}
-                        onChange={(v) => setSettings({ ...settings, taskCompleted: v })}
-                    />
-                </SettingRow>
-                <SettingRow label="Actualizaciones de proyecto" description="Cambios importantes en tus proyectos">
-                    <Toggle
-                        enabled={settings.projectUpdates}
-                        onChange={(v) => setSettings({ ...settings, projectUpdates: v })}
-                    />
-                </SettingRow>
-                <SettingRow label="Resumen semanal" description="Reporte de actividad cada lunes">
-                    <Toggle
-                        enabled={settings.weeklyDigest}
-                        onChange={(v) => setSettings({ ...settings, weeklyDigest: v })}
-                    />
-                </SettingRow>
-            </div>
-        </div>
-    );
-}
-
-// Appearance Settings Section
-function AppearanceSettings() {
-    const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light');
-    const [accentColor, setAccentColor] = useState('#f6921d');
-
-    const themes = [
-        { id: 'light', name: 'Claro', color: 'bg-white border-2' },
-        { id: 'dark', name: 'Oscuro', color: 'bg-gray-900' },
-        { id: 'system', name: 'Sistema', color: 'bg-gradient-to-r from-white to-gray-900' },
-    ];
-
-    const colors = [
-        '#f6921d', // SOLARIA orange
-        '#3b82f6', // Blue
-        '#10b981', // Green
-        '#8b5cf6', // Purple
-        '#ef4444', // Red
-        '#f59e0b', // Amber
-    ];
-
-    return (
-        <div className="space-y-6">
-            <div>
-                <h3 className="text-lg font-semibold text-gray-900">Apariencia</h3>
-                <p className="text-sm text-gray-500">Personaliza la interfaz</p>
-            </div>
-
-            {/* Theme */}
-            <div className="rounded-lg border border-gray-200 p-5">
-                <h4 className="font-medium text-gray-900 mb-4">Tema</h4>
-                <div className="flex gap-4">
-                    {themes.map((t) => (
-                        <button
-                            key={t.id}
-                            onClick={() => setTheme(t.id as typeof theme)}
-                            className={cn(
-                                'flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all',
-                                theme === t.id ? 'border-solaria-orange' : 'border-gray-200 hover:border-gray-300'
-                            )}
-                        >
-                            <div className={cn('w-16 h-10 rounded', t.color, t.id === 'light' && 'border border-gray-200')} />
-                            <span className="text-sm font-medium text-gray-700">{t.name}</span>
-                            {theme === t.id && (
-                                <Check className="h-4 w-4 text-solaria-orange" />
-                            )}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Accent Color */}
-            <div className="rounded-lg border border-gray-200 p-5">
-                <h4 className="font-medium text-gray-900 mb-4">Color de Acento</h4>
-                <div className="flex gap-3">
-                    {colors.map((color) => (
-                        <button
-                            key={color}
-                            onClick={() => setAccentColor(color)}
-                            className={cn(
-                                'h-10 w-10 rounded-full transition-transform hover:scale-110',
-                                accentColor === color && 'ring-2 ring-offset-2 ring-gray-400'
-                            )}
-                            style={{ backgroundColor: color }}
-                        />
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// Language Settings Section
-function LanguageSettings() {
-    const [language, setLanguage] = useState('es');
-    const [timezone, setTimezone] = useState('America/Mexico_City');
-
-    const languages = [
-        { id: 'es', name: 'Espanol', flag: '🇲🇽' },
-        { id: 'en', name: 'English', flag: '🇺🇸' },
-        { id: 'pt', name: 'Portugues', flag: '🇧🇷' },
-    ];
-
-    return (
-        <div className="space-y-6">
-            <div>
-                <h3 className="text-lg font-semibold text-gray-900">Idioma y Region</h3>
-                <p className="text-sm text-gray-500">Configura tu idioma y zona horaria</p>
-            </div>
-
-            <div className="rounded-lg border border-gray-200 p-5 space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Idioma</label>
-                    <div className="grid grid-cols-3 gap-3">
-                        {languages.map((lang) => (
-                            <button
-                                key={lang.id}
-                                onClick={() => setLanguage(lang.id)}
-                                className={cn(
-                                    'flex items-center gap-2 rounded-lg border p-3 transition-all',
-                                    language === lang.id
-                                        ? 'border-solaria-orange bg-solaria-orange/5'
-                                        : 'border-gray-200 hover:border-gray-300'
-                                )}
-                            >
-                                <span className="text-xl">{lang.flag}</span>
-                                <span className="text-sm font-medium text-gray-700">{lang.name}</span>
-                            </button>
-                        ))}
+            {/* Two-Factor Auth */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+                <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center">
+                            <Shield className="h-6 w-6 text-green-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-gray-900">Autenticación de Dos Factores</h3>
+                            <p className="text-sm text-gray-500">Añade una capa extra de seguridad</p>
+                        </div>
                     </div>
+                    <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
+                        No configurado
+                    </span>
                 </div>
+                <button className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
+                    <Key className="h-4 w-4" />
+                    Configurar 2FA
+                </button>
+            </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Zona Horaria</label>
-                    <select
-                        value={timezone}
-                        onChange={(e) => setTimezone(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-solaria-orange focus:outline-none focus:ring-1 focus:ring-solaria-orange"
-                    >
-                        <option value="America/Mexico_City">Ciudad de Mexico (UTC-6)</option>
-                        <option value="America/New_York">Nueva York (UTC-5)</option>
-                        <option value="America/Los_Angeles">Los Angeles (UTC-8)</option>
-                        <option value="Europe/Madrid">Madrid (UTC+1)</option>
-                        <option value="Europe/London">Londres (UTC+0)</option>
-                    </select>
+            {/* Active Sessions */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+                <h3 className="font-semibold text-gray-900">Sesiones Activas</h3>
+                <div className="space-y-4">
+                    {[
+                        { device: 'MacBook Pro - Chrome', location: 'Monterrey, MX', current: true, lastActive: 'Ahora' },
+                        { device: 'iPhone 15 - Safari', location: 'Monterrey, MX', current: false, lastActive: 'hace 2h' },
+                    ].map((session, index) => (
+                        <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div>
+                                <p className="font-medium text-gray-900 flex items-center gap-2">
+                                    {session.device}
+                                    {session.current && (
+                                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">Actual</span>
+                                    )}
+                                </p>
+                                <p className="text-sm text-gray-500">{session.location} · {session.lastActive}</p>
+                            </div>
+                            {!session.current && (
+                                <button className="text-red-600 hover:text-red-700 text-sm font-medium">
+                                    Cerrar Sesión
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+                <button className="text-red-600 hover:text-red-700 text-sm font-medium">
+                    Cerrar Todas las Otras Sesiones
+                </button>
+            </div>
+
+            {/* Activity Log */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+                <h3 className="font-semibold text-gray-900">Actividad Reciente</h3>
+                <div className="space-y-3">
+                    {[
+                        { action: 'Inicio de sesión exitoso', time: 'hace 5 min', ip: '192.168.1.1' },
+                        { action: 'Cambio de contraseña', time: 'hace 3 días', ip: '192.168.1.1' },
+                        { action: 'Inicio de sesión exitoso', time: 'hace 5 días', ip: '192.168.1.100' },
+                    ].map((log, index) => (
+                        <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                            <div>
+                                <p className="text-sm text-gray-900">{log.action}</p>
+                                <p className="text-xs text-gray-500">IP: {log.ip}</p>
+                            </div>
+                            <span className="text-xs text-gray-500">{log.time}</span>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
     );
 }
 
-// Roles & Permissions Section (Admin only)
-function RolesSettings() {
-    const roles = [
-        { id: 'admin', name: 'Administrador', users: 2, permissions: 'Acceso completo' },
-        { id: 'manager', name: 'Gestor', users: 5, permissions: 'Proyectos, Clientes, Tareas' },
-        { id: 'developer', name: 'Desarrollador', users: 8, permissions: 'Tareas asignadas' },
-        { id: 'viewer', name: 'Visor', users: 3, permissions: 'Solo lectura' },
-    ];
+function UsersSection({ users }: { users: typeof MOCK_USERS }) {
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredUsers = users.filter(user =>
+        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Roles y Permisos</h3>
-                    <p className="text-sm text-gray-500">Administra los niveles de acceso</p>
+                    <h2 className="text-xl font-semibold text-gray-900">Usuarios</h2>
+                    <p className="text-sm text-gray-500">Gestiona los usuarios del sistema</p>
                 </div>
-                <button className="inline-flex items-center gap-2 rounded-lg bg-solaria-orange px-4 py-2 text-sm font-medium text-white hover:bg-solaria-orange-dark">
-                    Nuevo Rol
+                <button className="inline-flex items-center gap-2 px-4 py-2 bg-solaria-orange text-white rounded-lg text-sm font-medium hover:bg-solaria-orange-dark transition-colors">
+                    <Plus className="h-4 w-4" />
+                    Nuevo Usuario
                 </button>
             </div>
 
-            <div className="rounded-lg border border-gray-200 overflow-hidden">
+            {/* Search */}
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                    type="text"
+                    placeholder="Buscar usuarios..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-solaria-orange/20 focus:border-solaria-orange"
+                />
+            </div>
+
+            {/* Users Table */}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <table className="w-full">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Rol</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Usuarios</th>
-                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Permisos</th>
-                            <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Acciones</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último Acceso</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {roles.map((role) => (
-                            <tr key={role.id} className="border-t border-gray-100">
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center gap-2">
-                                        <Shield className="h-4 w-4 text-gray-400" />
-                                        <span className="font-medium text-gray-900">{role.name}</span>
+                    <tbody className="divide-y divide-gray-200">
+                        {filteredUsers.map((user) => (
+                            <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-4 py-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-solaria-orange/20 to-solaria-orange/10 flex items-center justify-center">
+                                            <User className="h-5 w-5 text-solaria-orange" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-gray-900">{user.name}</p>
+                                            <p className="text-sm text-gray-500">{user.email}</p>
+                                        </div>
                                     </div>
                                 </td>
-                                <td className="px-4 py-3 text-sm text-gray-600">{role.users} usuarios</td>
-                                <td className="px-4 py-3 text-sm text-gray-600">{role.permissions}</td>
-                                <td className="px-4 py-3 text-right">
-                                    <button className="text-sm text-solaria-orange hover:underline">
-                                        Editar
-                                    </button>
+                                <td className="px-4 py-4">
+                                    <RoleBadge role={user.role} />
+                                </td>
+                                <td className="px-4 py-4">
+                                    <StatusBadge status={user.status} />
+                                </td>
+                                <td className="px-4 py-4">
+                                    <span className="text-sm text-gray-600">{formatRelativeDate(user.last_login)}</span>
+                                </td>
+                                <td className="px-4 py-4 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+                                            <Edit className="h-4 w-4" />
+                                        </button>
+                                        <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -519,105 +693,324 @@ function RolesSettings() {
     );
 }
 
-export function SettingsPage() {
-    const [activeSection, setActiveSection] = useState('profile');
-
-    const renderSection = () => {
-        switch (activeSection) {
-            case 'profile':
-                return <ProfileSettings />;
-            case 'security':
-                return <SecuritySettings />;
-            case 'notifications':
-                return <NotificationSettings />;
-            case 'appearance':
-                return <AppearanceSettings />;
-            case 'language':
-                return <LanguageSettings />;
-            case 'roles':
-                return <RolesSettings />;
-            case 'users':
-                return <div className="text-gray-500">Administracion de usuarios (en desarrollo)</div>;
-            case 'system':
-                return <div className="text-gray-500">Configuracion del sistema (en desarrollo)</div>;
-            default:
-                return <ProfileSettings />;
-        }
-    };
+function RolesSection({ roles }: { roles: typeof MOCK_ROLES }) {
+    const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">Configuracion</h1>
-                <p className="text-sm text-gray-500">Administra tu cuenta y preferencias</p>
+                <h2 className="text-xl font-semibold text-gray-900">Roles y Permisos</h2>
+                <p className="text-sm text-gray-500">Configura los permisos de cada rol</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Sidebar Navigation */}
-                <div className="space-y-6">
-                    {/* User Settings */}
-                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                            Cuenta
-                        </h3>
-                        <nav className="space-y-1">
-                            {SETTINGS_SECTIONS.map((section) => (
-                                <button
-                                    key={section.id}
-                                    onClick={() => setActiveSection(section.id)}
-                                    className={cn(
-                                        'w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                                        activeSection === section.id
-                                            ? 'bg-solaria-orange/10 text-solaria-orange'
-                                            : 'text-gray-700 hover:bg-gray-100'
-                                    )}
-                                >
-                                    <section.icon className="h-4 w-4" />
-                                    <span className="flex-1 text-left">{section.name}</span>
-                                    <ChevronRight className={cn(
-                                        'h-4 w-4 transition-transform',
-                                        activeSection === section.id && 'rotate-90'
-                                    )} />
-                                </button>
-                            ))}
-                        </nav>
-                    </div>
-
-                    {/* Admin Settings */}
-                    <PermissionGate permission="admin:access">
-                        <div className="rounded-xl border border-gray-200 bg-white p-4">
-                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                                Administracion
-                            </h3>
-                            <nav className="space-y-1">
-                                {ADMIN_SECTIONS.map((section) => (
-                                    <button
-                                        key={section.id}
-                                        onClick={() => setActiveSection(section.id)}
-                                        className={cn(
-                                            'w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                                            activeSection === section.id
-                                                ? 'bg-solaria-orange/10 text-solaria-orange'
-                                                : 'text-gray-700 hover:bg-gray-100'
-                                        )}
-                                    >
-                                        <section.icon className="h-4 w-4" />
-                                        <span className="flex-1 text-left">{section.name}</span>
-                                        <ChevronRight className={cn(
-                                            'h-4 w-4 transition-transform',
-                                            activeSection === section.id && 'rotate-90'
-                                        )} />
-                                    </button>
-                                ))}
-                            </nav>
-                        </div>
-                    </PermissionGate>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Roles List */}
+                <div className="space-y-3">
+                    {roles.map((role) => (
+                        <button
+                            key={role.code}
+                            onClick={() => setSelectedRole(role.code)}
+                            className={`w-full p-4 rounded-xl border-2 text-left transition-colors ${
+                                selectedRole === role.code
+                                    ? 'border-solaria-orange bg-solaria-orange/5'
+                                    : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between mb-1">
+                                <RoleBadge role={role.code} />
+                                <span className="text-xs text-gray-500">{role.users_count} usuarios</span>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-2">{role.description}</p>
+                            <p className="text-xs text-gray-400 mt-1">{role.permissions_count} permisos</p>
+                        </button>
+                    ))}
                 </div>
 
-                {/* Content Area */}
-                <div className="lg:col-span-3 rounded-xl border border-gray-200 bg-white p-6">
-                    {renderSection()}
+                {/* Permissions Panel */}
+                <div className="lg:col-span-2">
+                    {selectedRole ? (
+                        <div className="bg-white rounded-xl border border-gray-200 p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900 capitalize">{selectedRole}</h3>
+                                    <p className="text-sm text-gray-500">
+                                        {roles.find(r => r.code === selectedRole)?.description}
+                                    </p>
+                                </div>
+                                <button className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50">
+                                    <Edit className="h-4 w-4" />
+                                    Editar
+                                </button>
+                            </div>
+
+                            <div className="space-y-6">
+                                {MOCK_PERMISSIONS.map((category) => (
+                                    <div key={category.category}>
+                                        <h4 className="text-sm font-medium text-gray-700 uppercase mb-3 capitalize">
+                                            {category.category}
+                                        </h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {category.permissions.map((permission) => (
+                                                <label key={permission} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        defaultChecked={Math.random() > 0.3}
+                                                        className="rounded text-solaria-orange focus:ring-solaria-orange"
+                                                    />
+                                                    <span className="text-sm text-gray-700">{permission}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="pt-6 mt-6 border-t border-gray-200">
+                                <button className="inline-flex items-center gap-2 px-4 py-2 bg-solaria-orange text-white rounded-lg text-sm font-medium hover:bg-solaria-orange-dark transition-colors">
+                                    <Save className="h-4 w-4" />
+                                    Guardar Permisos
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="h-full flex items-center justify-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                            <div className="text-center">
+                                <Shield className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                                <p className="text-gray-500">Selecciona un rol para ver sus permisos</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function SystemSection({ systemInfo }: { systemInfo: typeof MOCK_SYSTEM_INFO }) {
+    return (
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-xl font-semibold text-gray-900">Sistema</h2>
+                <p className="text-sm text-gray-500">Información y estado del sistema</p>
+            </div>
+
+            {/* Version Info */}
+            <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-6 text-white">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-gray-400 text-sm">SOLARIA Office CRM</p>
+                        <p className="text-3xl font-bold mt-1">v{systemInfo.version}</p>
+                        <p className="text-gray-400 mt-2 capitalize">{systemInfo.environment}</p>
+                    </div>
+                    <div className="text-right">
+                        <button className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-colors">
+                            <RefreshCw className="h-4 w-4" />
+                            Buscar Actualizaciones
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Status Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Database */}
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                            <Database className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-900">Base de Datos</p>
+                            <p className="text-xs text-gray-500">{systemInfo.database.type} {systemInfo.database.version}</p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Estado</span>
+                            <span className="text-sm font-medium text-green-600 flex items-center gap-1">
+                                <Check className="h-3 w-3" />
+                                Conectado
+                            </span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Conexiones</span>
+                            <span className="text-sm font-medium text-gray-900">{systemInfo.database.connections}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* API */}
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+                            <Server className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-900">API</p>
+                            <p className="text-xs text-gray-500">REST + MCP</p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Estado</span>
+                            <span className="text-sm font-medium text-green-600 flex items-center gap-1">
+                                <Check className="h-3 w-3" />
+                                Saludable
+                            </span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Uptime</span>
+                            <span className="text-sm font-medium text-gray-900">{systemInfo.api.uptime}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Requests Hoy</span>
+                            <span className="text-sm font-medium text-gray-900">{systemInfo.api.requests_today.toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Storage */}
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                            <Activity className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-900">Almacenamiento</p>
+                            <p className="text-xs text-gray-500">{systemInfo.storage.used} de {systemInfo.storage.total}</p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                                className="h-2 rounded-full bg-purple-500"
+                                style={{ width: `${systemInfo.storage.percentage}%` }}
+                            />
+                        </div>
+                        <p className="text-xs text-gray-500 text-right">{systemInfo.storage.percentage}% usado</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Danger Zone */}
+            <div className="bg-red-50 rounded-xl border border-red-200 p-6">
+                <h3 className="text-lg font-semibold text-red-800 mb-4 flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5" />
+                    Zona de Peligro
+                </h3>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-red-200">
+                        <div>
+                            <p className="font-medium text-gray-900">Limpiar Cache</p>
+                            <p className="text-sm text-gray-500">Eliminar todos los datos en cache del sistema</p>
+                        </div>
+                        <button className="px-4 py-2 text-red-600 border border-red-300 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors">
+                            Limpiar
+                        </button>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-red-200">
+                        <div>
+                            <p className="font-medium text-gray-900">Resetear Sistema</p>
+                            <p className="text-sm text-gray-500">Restaurar configuración a valores por defecto</p>
+                        </div>
+                        <button className="px-4 py-2 text-red-600 border border-red-300 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors">
+                            Resetear
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
+export function SettingsPage() {
+    const [activeSection, setActiveSection] = useState<SectionType>('profile');
+
+    // Mock current user role for admin visibility
+    const currentUserRole = MOCK_USER.role;
+    const isAdmin = ['ceo', 'cto', 'admin'].includes(currentUserRole);
+
+    return (
+        <div className="min-h-screen">
+            <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
+                    <p className="text-gray-500">Administra tu cuenta y preferencias del sistema</p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    {/* Sidebar Navigation */}
+                    <div className="space-y-2">
+                        <NavItem
+                            active={activeSection === 'profile'}
+                            onClick={() => setActiveSection('profile')}
+                            icon={User}
+                            label="Perfil"
+                            description="Información personal"
+                        />
+                        <NavItem
+                            active={activeSection === 'preferences'}
+                            onClick={() => setActiveSection('preferences')}
+                            icon={Settings}
+                            label="Preferencias"
+                            description="Personalización"
+                        />
+                        <NavItem
+                            active={activeSection === 'security'}
+                            onClick={() => setActiveSection('security')}
+                            icon={Shield}
+                            label="Seguridad"
+                            description="Contraseña y 2FA"
+                        />
+
+                        {isAdmin && (
+                            <>
+                                <div className="py-2">
+                                    <div className="border-t border-gray-200" />
+                                    <p className="text-xs font-medium text-gray-400 uppercase mt-4 mb-2 px-3">Administración</p>
+                                </div>
+                                <NavItem
+                                    active={activeSection === 'users'}
+                                    onClick={() => setActiveSection('users')}
+                                    icon={Users}
+                                    label="Usuarios"
+                                    description="Gestión de usuarios"
+                                    adminOnly
+                                />
+                                <NavItem
+                                    active={activeSection === 'roles'}
+                                    onClick={() => setActiveSection('roles')}
+                                    icon={Key}
+                                    label="Roles"
+                                    description="Permisos y accesos"
+                                    adminOnly
+                                />
+                                <NavItem
+                                    active={activeSection === 'system'}
+                                    onClick={() => setActiveSection('system')}
+                                    icon={Server}
+                                    label="Sistema"
+                                    description="Estado y configuración"
+                                    adminOnly
+                                />
+                            </>
+                        )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="lg:col-span-3">
+                        {activeSection === 'profile' && <ProfileSection user={MOCK_USER} />}
+                        {activeSection === 'preferences' && <PreferencesSection preferences={MOCK_PREFERENCES} />}
+                        {activeSection === 'security' && <SecuritySection />}
+                        {activeSection === 'users' && isAdmin && <UsersSection users={MOCK_USERS} />}
+                        {activeSection === 'roles' && isAdmin && <RolesSection roles={MOCK_ROLES} />}
+                        {activeSection === 'system' && isAdmin && <SystemSection systemInfo={MOCK_SYSTEM_INFO} />}
+                    </div>
                 </div>
             </div>
         </div>
