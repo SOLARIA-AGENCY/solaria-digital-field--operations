@@ -22,6 +22,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./users.js"), exports);
 // Projects (includes clients, documents, requests, metrics)
 __exportStar(require("./projects.js"), exports);
+// Sprints & Epics (project phases and feature groupings)
+__exportStar(require("./sprints.js"), exports);
+__exportStar(require("./epics.js"), exports);
 // AI Agents (includes states, metrics)
 __exportStar(require("./agents.js"), exports);
 // Tasks (includes items, tags, tag assignments)
@@ -32,4 +35,8 @@ __exportStar(require("./alerts.js"), exports);
 __exportStar(require("./memories.js"), exports);
 // Businesses
 __exportStar(require("./businesses.js"), exports);
+// Office CRM (clients, contacts, payments)
+__exportStar(require("./office-clients.js"), exports);
+// Permissions (RBAC)
+__exportStar(require("./permissions.js"), exports);
 //# sourceMappingURL=index.js.map

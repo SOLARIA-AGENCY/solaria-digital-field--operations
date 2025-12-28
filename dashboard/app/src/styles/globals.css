@@ -1273,6 +1273,25 @@ textarea,
     }
 }
 
+/* Responsive table columns */
+@media (max-width: 1400px) {
+    .hide-lg {
+        display: none !important;
+    }
+}
+
+@media (max-width: 1200px) {
+    .hide-md {
+        display: none !important;
+    }
+}
+
+@media (max-width: 900px) {
+    .hide-sm {
+        display: none !important;
+    }
+}
+
 /* Project Card */
 .project-card {
     background: var(--bg-card);
@@ -1747,7 +1766,8 @@ textarea,
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-color);
     vertical-align: middle;
-    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .list-table tbody tr {

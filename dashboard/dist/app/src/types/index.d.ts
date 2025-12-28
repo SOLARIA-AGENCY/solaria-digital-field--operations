@@ -14,7 +14,7 @@ export interface Project {
     name: string;
     code: string;
     description?: string;
-    status: 'planning' | 'active' | 'development' | 'testing' | 'deployment' | 'paused' | 'on_hold' | 'completed' | 'cancelled';
+    status: 'planning' | 'development' | 'testing' | 'deployment' | 'on_hold' | 'completed' | 'cancelled';
     priority: 'critical' | 'high' | 'medium' | 'low';
     businessId?: number;
     progress: number;
@@ -28,6 +28,9 @@ export interface Project {
     updatedAt: string;
     tasksTotal?: number;
     tasksCompleted?: number;
+    tasksPending?: number;
+    tasksInProgress?: number;
+    tasksBlocked?: number;
     activeAgents?: number;
     productionUrl?: string;
     stagingUrl?: string;
@@ -99,6 +102,7 @@ export interface TaskTag {
 export interface Epic {
     id: number;
     projectId: number;
+    sprintId?: number;
     epicNumber: number;
     name: string;
     description?: string;
@@ -111,6 +115,10 @@ export interface Epic {
     updatedAt: string;
     tasksTotal?: number;
     tasksCompleted?: number;
+    progress?: number;
+    sprintName?: string;
+    sprintNumber?: number;
+    sprintStatus?: string;
 }
 export interface Sprint {
     id: number;
@@ -123,11 +131,16 @@ export interface Sprint {
     endDate?: string;
     velocity: number;
     capacity: number;
+    phaseType?: 'planning' | 'development' | 'testing' | 'deployment' | 'maintenance' | 'custom';
+    phaseOrder?: number;
     createdBy?: number;
     createdAt: string;
     updatedAt: string;
     tasksTotal?: number;
     tasksCompleted?: number;
+    progress?: number;
+    epicsTotal?: number;
+    epicsCompleted?: number;
 }
 export interface Agent {
     id: number;
@@ -214,4 +227,18 @@ export interface PaginatedResponse<T> {
     total: number;
     page: number;
     limit: number;
+}
+export interface InlineDocument {
+    id: number;
+    projectId: number;
+    name: string;
+    type: 'plan' | 'spec' | 'report' | 'manual' | 'adr' | 'roadmap' | 'audit' | 'other';
+    contentMd: string;
+    version: number;
+    isActive: boolean;
+    createdByAgentId?: number;
+    changeSummary?: string;
+    archivedAt?: string;
+    createdAt: string;
+    updatedAt: string;
 }

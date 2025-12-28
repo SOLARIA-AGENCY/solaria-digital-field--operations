@@ -12,8 +12,11 @@ import {
     AlertCircle,
     Users,
     Loader2,
+    Target,
+    Pause,
+    Search,
 } from 'lucide-react';
-import { useProjects, useTasks } from '@/hooks/useApi';
+import { useProjects } from '@/hooks/useApi';
 import { cn, formatDate } from '@/lib/utils';
 import type { Project } from '@/types';
 
@@ -49,15 +52,15 @@ function MiniTrello({ board }: { board: BoardStats }) {
     return (
         <div className="mini-trello">
             <div className="trello-column backlog">
-                <div className="trello-column-header">PEND ({board.backlog})</div>
+                <div className="trello-column-header">BL ({board.backlog})</div>
                 <div className="trello-slots">{generateSlots(board.backlog, 'backlog')}</div>
             </div>
             <div className="trello-column todo">
-                <div className="trello-column-header">REV ({board.todo})</div>
+                <div className="trello-column-header">TODO ({board.todo})</div>
                 <div className="trello-slots">{generateSlots(board.todo, 'todo')}</div>
             </div>
             <div className="trello-column doing">
-                <div className="trello-column-header">WIP ({board.doing})</div>
+                <div className="trello-column-header">DOING ({board.doing})</div>
                 <div className="trello-slots">{generateSlots(board.doing, 'doing')}</div>
             </div>
             <div className="trello-column done">
@@ -90,8 +93,8 @@ function ProgressSegments({ status }: { status: string }) {
 
 // Board stats calculated from real task data
 interface BoardStats {
-    backlog: number;  // pending tasks
-    todo: number;     // review tasks
+    backlog: number;  // 0 - no separate backlog status
+    todo: number;     // pending tasks
     doing: number;    // in_progress tasks
     done: number;     // completed tasks
     blocked: number;  // blocked tasks
@@ -247,22 +250,22 @@ function ProjectRow({ project, onClick }: { project: Project; onClick: () => voi
                     {phaseInfo.label}
                 </span>
             </td>
-            <td className="text-center">
+            <td className="text-center hide-sm">
                 <span className="stat-blue">{totalTasks}</span>
             </td>
-            <td className="text-center">
+            <td className="text-center hide-md">
                 <span className="stat-yellow">{pendingTasks}</span>
             </td>
-            <td className="text-center">
+            <td className="text-center hide-md">
                 <span className="stat-green">{completedTasks}</span>
             </td>
-            <td className="text-center">
+            <td className="text-center hide-lg">
                 <span className="stat-orange">{budgetStr}</span>
             </td>
-            <td className="text-center">
+            <td className="text-center hide-lg">
                 <span className="stat-purple">{project.activeAgents || 0}</span>
             </td>
-            <td className="text-center">
+            <td className="text-center hide-sm">
                 <span className="stat-indigo">
                     {project.endDate ? formatDate(project.endDate) : '-'}
                 </span>
@@ -281,25 +284,58 @@ export function ProjectsPage() {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const { data: projects, isLoading } = useProjects();
-    const { data: allTasks } = useTasks({});
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [sortBy, setSortBy] = useState<SortOption>('name');
+    const [search, setSearch] = useState('');
+    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
-    // Calculate board stats per project from real task data
+    // Calculate metrics
+    const totalProjects = projects?.length || 0;
+    const activeProjects = projects?.filter((p: Project) =>
+        ['planning', 'development', 'testing', 'deployment'].includes(p.status)
+    ).length || 0;
+    const completedProjects = projects?.filter((p: Project) => p.status === 'completed').length || 0;
+    const pausedProjects = projects?.filter((p: Project) =>
+        ['on_hold', 'cancelled'].includes(p.status)
+    ).length || 0;
+
+    // Calculate board stats per project using fields from backend
+    // MiniTrello mapping: pending -> todo, in_progress -> doing, completed -> done
+    // Data comes directly from DB queries, no client-side filtering needed
     const projectBoardStats = (projects || []).reduce((acc: Record<number, { backlog: number; todo: number; doing: number; done: number; blocked: number }>, project: Project) => {
-        const projectTasks = (allTasks || []).filter((t: { projectId: number }) => t.projectId === project.id);
         acc[project.id] = {
-            backlog: projectTasks.filter((t: { status: string }) => t.status === 'pending').length,
-            todo: projectTasks.filter((t: { status: string }) => t.status === 'review').length,
-            doing: projectTasks.filter((t: { status: string }) => t.status === 'in_progress').length,
-            done: projectTasks.filter((t: { status: string }) => t.status === 'completed').length,
-            blocked: projectTasks.filter((t: { status: string }) => t.status === 'blocked').length,
+            backlog: 0, // No separate backlog status in current schema
+            todo: project.tasksPending || 0,
+            doing: project.tasksInProgress || 0,
+            done: project.tasksCompleted || 0,
+            blocked: project.tasksBlocked || 0,
         };
         return acc;
     }, {} as Record<number, BoardStats>);
 
+    // Filter projects by search and status
+    const filteredProjects = (projects || []).filter((project: Project) => {
+        // Search filter
+        if (search && search.length >= 3) {
+            const searchLower = search.toLowerCase();
+            const matchesSearch = (
+                project.name.toLowerCase().includes(searchLower) ||
+                project.code.toLowerCase().includes(searchLower) ||
+                (project.description?.toLowerCase().includes(searchLower) || false)
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Status filter
+        if (selectedStatuses.length > 0) {
+            if (!selectedStatuses.includes(project.status)) return false;
+        }
+
+        return true;
+    });
+
     // Sort projects
-    const sortedProjects = [...(projects || [])].sort((a: Project, b: Project) => {
+    const sortedProjects = [...filteredProjects].sort((a: Project, b: Project) => {
         switch (sortBy) {
             case 'name':
                 return a.name.localeCompare(b.name);
@@ -318,6 +354,12 @@ export function ProjectsPage() {
 
     const handleProjectClick = (id: number) => {
         navigate(`/projects/${id}`);
+    };
+
+    const toggleStatus = (status: string) => {
+        setSelectedStatuses((prev) =>
+            prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+        );
     };
 
     if (isLoading) {
@@ -357,12 +399,52 @@ export function ProjectsPage() {
 
     return (
         <div className="space-y-6">
+            {/* Stats Row */}
+            <div className="dashboard-stats-row">
+                <div className="stat-card">
+                    <div className="stat-icon projects">
+                        <FolderKanban className="h-5 w-5" />
+                    </div>
+                    <div className="stat-content">
+                        <div className="stat-label">Total Proyectos</div>
+                        <div className="stat-value">{totalProjects}</div>
+                    </div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-icon active">
+                        <Target className="h-5 w-5" />
+                    </div>
+                    <div className="stat-content">
+                        <div className="stat-label">Activos</div>
+                        <div className="stat-value">{activeProjects}</div>
+                    </div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-icon green">
+                        <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <div className="stat-content">
+                        <div className="stat-label">Completados</div>
+                        <div className="stat-value">{completedProjects}</div>
+                    </div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-icon yellow">
+                        <Pause className="h-5 w-5" />
+                    </div>
+                    <div className="stat-content">
+                        <div className="stat-label">En Pausa</div>
+                        <div className="stat-value">{pausedProjects}</div>
+                    </div>
+                </div>
+            </div>
+
             {/* Header */}
             <div className="section-header">
                 <div>
                     <h1 className="section-title">Proyectos</h1>
                     <p className="section-subtitle">
-                        {projects?.length || 0} proyectos en el pipeline
+                        {totalProjects} proyectos en el pipeline
                     </p>
                 </div>
                 <div className="section-actions">
@@ -420,6 +502,52 @@ export function ProjectsPage() {
                 </div>
             </div>
 
+            {/* Search Section */}
+            <div className="bg-card border border-border rounded-xl p-5">
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            type="text"
+                            placeholder="Buscar proyectos (mínimo 3 caracteres)..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background pl-10 pr-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                        {sortedProjects.length} {sortedProjects.length === 1 ? 'proyecto' : 'proyectos'}
+                    </span>
+                </div>
+
+                {/* Status Filters */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fase:</span>
+                    {Object.entries(PROJECT_PHASES).map(([status, info]) => {
+                        const isSelected = selectedStatuses.includes(status);
+                        const count = projects?.filter((p: Project) => p.status === status).length || 0;
+                        if (count === 0) return null;
+                        return (
+                            <button
+                                key={status}
+                                onClick={() => toggleStatus(status)}
+                                className={cn(
+                                    'memory-tag-filter',
+                                    isSelected && 'selected'
+                                )}
+                                style={
+                                    isSelected
+                                        ? { backgroundColor: info.color, color: '#fff' }
+                                        : { backgroundColor: `${info.color}20`, color: info.color }
+                                }
+                            >
+                                {info.label} ({count})
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
             {/* Projects Grid */}
             {viewMode === 'grid' ? (
                 <div className="projects-grid">
@@ -439,19 +567,19 @@ export function ProjectsPage() {
                     )}
                 </div>
             ) : (
-                <div className="project-card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <table className="list-table">
+                <div className="project-card" style={{ padding: 0 }}>
+                    <table className="list-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <thead>
                             <tr>
-                                <th style={{ width: '22%' }}>Proyecto</th>
+                                <th style={{ width: '25%' }}>Proyecto</th>
                                 <th style={{ width: '12%' }}>Fase</th>
-                                <th style={{ width: '8%', textAlign: 'center' }}>Tareas</th>
-                                <th style={{ width: '8%', textAlign: 'center' }}>Pend.</th>
-                                <th style={{ width: '8%', textAlign: 'center' }}>Compl.</th>
-                                <th style={{ width: '10%', textAlign: 'center' }}>Budget</th>
-                                <th style={{ width: '8%', textAlign: 'center' }}>Agentes</th>
-                                <th style={{ width: '12%', textAlign: 'center' }}>Entrega</th>
-                                <th style={{ width: '12%', textAlign: 'center' }}>Progreso</th>
+                                <th className="hide-sm" style={{ width: '9%', textAlign: 'center' }}>Tareas</th>
+                                <th className="hide-md" style={{ width: '8%', textAlign: 'center' }}>Pend.</th>
+                                <th className="hide-md" style={{ width: '8%', textAlign: 'center' }}>Compl.</th>
+                                <th className="hide-lg" style={{ width: '10%', textAlign: 'center' }}>Budget</th>
+                                <th className="hide-lg" style={{ width: '9%', textAlign: 'center' }}>Agentes</th>
+                                <th className="hide-sm" style={{ width: '11%', textAlign: 'center' }}>Entrega</th>
+                                <th style={{ width: '8%', textAlign: 'center' }}>Progreso</th>
                             </tr>
                         </thead>
                         <tbody>

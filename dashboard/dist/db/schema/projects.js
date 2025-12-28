@@ -43,10 +43,12 @@ exports.projects = (0, mysql_core_1.mysqlTable)('projects', {
     localUrl: (0, mysql_core_1.varchar)('local_url', { length: 500 }),
     repoUrl: (0, mysql_core_1.varchar)('repo_url', { length: 500 }),
     // Tags (JSON array of strings)
-    tags: (0, mysql_core_1.text)('tags'), // JSON array: ["SAAS", "REACT", "B2B"]
+    tags: (0, mysql_core_1.json)('tags').$type(), // ["SAAS", "REACT", "B2B"]
     // Stack (JSON array of tech names)
-    stack: (0, mysql_core_1.text)('stack'), // JSON array: ["React", "Node.js", "MariaDB"]
+    stack: (0, mysql_core_1.json)('stack').$type(), // ["React", "Node.js", "MariaDB"]
     createdBy: (0, mysql_core_1.int)('created_by').references(() => users_js_1.users.id, { onDelete: 'set null' }),
+    // Office CRM link
+    officeClientId: (0, mysql_core_1.int)('office_client_id'),
     createdAt: (0, mysql_core_1.timestamp)('created_at').defaultNow(),
     updatedAt: (0, mysql_core_1.timestamp)('updated_at').defaultNow().onUpdateNow(),
 });

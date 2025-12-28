@@ -14,12 +14,15 @@ export declare const projectsApi: {
 };
 export declare const epicsApi: {
     getByProject: (projectId: number) => Promise<import("axios").AxiosResponse<any, any, {}>>;
+    getById: (id: number) => Promise<import("axios").AxiosResponse<any, any, {}>>;
     create: (projectId: number, data: Record<string, unknown>) => Promise<import("axios").AxiosResponse<any, any, {}>>;
     update: (id: number, data: Record<string, unknown>) => Promise<import("axios").AxiosResponse<any, any, {}>>;
     delete: (id: number) => Promise<import("axios").AxiosResponse<any, any, {}>>;
 };
 export declare const sprintsApi: {
     getByProject: (projectId: number) => Promise<import("axios").AxiosResponse<any, any, {}>>;
+    getById: (id: number) => Promise<import("axios").AxiosResponse<any, any, {}>>;
+    getFullHierarchy: (id: number) => Promise<import("axios").AxiosResponse<any, any, {}>>;
     create: (projectId: number, data: Record<string, unknown>) => Promise<import("axios").AxiosResponse<any, any, {}>>;
     update: (id: number, data: Record<string, unknown>) => Promise<import("axios").AxiosResponse<any, any, {}>>;
     delete: (id: number) => Promise<import("axios").AxiosResponse<any, any, {}>>;
@@ -71,4 +74,12 @@ export declare const csuiteApi: {
     getCTO: () => Promise<import("axios").AxiosResponse<any, any, {}>>;
     getCOO: () => Promise<import("axios").AxiosResponse<any, any, {}>>;
     getCFO: () => Promise<import("axios").AxiosResponse<any, any, {}>>;
+};
+export declare const documentsApi: {
+    getByProject: (projectId: number, type?: string) => Promise<import("axios").AxiosResponse<any, any, {}>>;
+    getById: (id: number) => Promise<import("axios").AxiosResponse<any, any, {}>>;
+    create: (projectId: number, data: Record<string, unknown>) => Promise<import("axios").AxiosResponse<any, any, {}>>;
+    update: (id: number, data: Record<string, unknown>) => Promise<import("axios").AxiosResponse<any, any, {}>>;
+    delete: (id: number) => Promise<import("axios").AxiosResponse<any, any, {}>>;
+    search: (query: string, projectId?: number, type?: string) => Promise<import("axios").AxiosResponse<any, any, {}>>;
 };

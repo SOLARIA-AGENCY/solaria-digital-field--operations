@@ -188,6 +188,9 @@ export function BusinessesPage() {
     const [businesses, setBusinesses] = useState<Business[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [search, setSearch] = useState('');
+    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+    const [selectedHealth, setSelectedHealth] = useState<string[]>([]);
 
     useEffect(() => {
         async function fetchBusinesses() {
@@ -210,13 +213,60 @@ export function BusinessesPage() {
         fetchBusinesses();
     }, [token]);
 
+    // Health calculation helper
+    const getHealth = (business: Business): 'healthy' | 'warning' | 'critical' => {
+        const { churn, growth } = business.metrics || { churn: 0, growth: 0 };
+        if (churn <= 2 && growth > 10) return 'healthy';
+        if (churn > 5 || growth < 5) return 'critical';
+        return 'warning';
+    };
+
+    // Toggle functions
+    const toggleStatus = (status: string) => {
+        setSelectedStatuses((prev) =>
+            prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+        );
+    };
+
+    const toggleHealth = (health: string) => {
+        setSelectedHealth((prev) =>
+            prev.includes(health) ? prev.filter((h) => h !== health) : [...prev, health]
+        );
+    };
+
+    // Filter businesses
+    const filteredBusinesses = businesses.filter((business) => {
+        // Search filter
+        if (search && search.length >= 3) {
+            const searchLower = search.toLowerCase();
+            const matchesSearch = (
+                business.name.toLowerCase().includes(searchLower) ||
+                business.description.toLowerCase().includes(searchLower)
+            );
+            if (!matchesSearch) return false;
+        }
+
+        // Status filter
+        if (selectedStatuses.length > 0) {
+            if (!selectedStatuses.includes(business.status)) return false;
+        }
+
+        // Health filter
+        if (selectedHealth.length > 0) {
+            const health = getHealth(business);
+            if (!selectedHealth.includes(health)) return false;
+        }
+
+        return true;
+    });
+
     // Calculate totals (with null checks for API data)
-    const totalMRR = businesses.reduce((sum, b) => sum + (b.metrics?.mrr || 0), 0);
-    const totalClients = businesses.reduce((sum, b) => sum + (b.metrics?.clients || 0), 0);
-    const avgGrowth = businesses.length
-        ? Math.round(businesses.reduce((sum, b) => sum + (b.metrics?.growth || 0), 0) / businesses.length)
+    const totalMRR = filteredBusinesses.reduce((sum, b) => sum + (b.metrics?.mrr || 0), 0);
+    const totalClients = filteredBusinesses.reduce((sum, b) => sum + (b.metrics?.clients || 0), 0);
+    const avgGrowth = filteredBusinesses.length
+        ? Math.round(filteredBusinesses.reduce((sum, b) => sum + (b.metrics?.growth || 0), 0) / filteredBusinesses.length)
         : 0;
-    const activeCount = businesses.filter((b) => b.status === 'active').length;
+    const activeCount = filteredBusinesses.filter((b) => b.status === 'active').length;
 
     if (loading) {
         return (
@@ -290,10 +340,87 @@ export function BusinessesPage() {
                 </div>
             </div>
 
+            {/* Search and Filters */}
+            <div className="bg-card border border-border rounded-xl p-5">
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            type="text"
+                            placeholder="Buscar negocios (mínimo 3 caracteres)..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background pl-10 pr-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                        {filteredBusinesses.length} {filteredBusinesses.length === 1 ? 'negocio' : 'negocios'}
+                    </span>
+                </div>
+
+                {/* Status Filters */}
+                <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado:</span>
+                    {(['active', 'growing', 'paused'] as const).map((status) => {
+                        const isSelected = selectedStatuses.includes(status);
+                        const count = businesses.filter((b) => b.status === status).length;
+                        if (count === 0) return null;
+                        const config = {
+                            active: { label: 'Activo', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
+                            growing: { label: 'Creciendo', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)' },
+                            paused: { label: 'Pausado', color: '#64748b', bg: 'rgba(100, 116, 139, 0.15)' },
+                        }[status];
+                        return (
+                            <button
+                                key={status}
+                                onClick={() => toggleStatus(status)}
+                                className="memory-tag-filter"
+                                style={
+                                    isSelected
+                                        ? { backgroundColor: config.color, color: '#fff' }
+                                        : { backgroundColor: config.bg, color: config.color }
+                                }
+                            >
+                                {config.label} ({count})
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Health Filters */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Salud:</span>
+                    {(['healthy', 'warning', 'critical'] as const).map((health) => {
+                        const isSelected = selectedHealth.includes(health);
+                        const count = businesses.filter((b) => getHealth(b) === health).length;
+                        if (count === 0) return null;
+                        const config = {
+                            healthy: { label: '🟢 Saludable', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
+                            warning: { label: '🟡 Advertencia', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' },
+                            critical: { label: '🔴 Crítico', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' },
+                        }[health];
+                        return (
+                            <button
+                                key={health}
+                                onClick={() => toggleHealth(health)}
+                                className="memory-tag-filter"
+                                style={
+                                    isSelected
+                                        ? { backgroundColor: config.color, color: '#fff' }
+                                        : { backgroundColor: config.bg, color: config.color }
+                                }
+                            >
+                                {config.label} ({count})
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
             {/* Business Grid/List */}
             {viewMode === 'grid' ? (
                 <div className="grid grid-cols-2 gap-4">
-                    {businesses.map((business) => (
+                    {filteredBusinesses.map((business) => (
                         <BusinessCard
                             key={business.id}
                             business={business}
@@ -303,7 +430,7 @@ export function BusinessesPage() {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {businesses.map((business) => (
+                    {filteredBusinesses.map((business) => (
                         <div
                             key={business.id}
                             onClick={() => navigate(`/businesses/${business.id}`)}

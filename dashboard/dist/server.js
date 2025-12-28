@@ -216,6 +216,17 @@ class SolariaDashboardServer {
         const denominator = Math.sqrt(normA) * Math.sqrt(normB);
         return denominator === 0 ? 0 : dotProduct / denominator;
     }
+    /**
+     * Calculate progress percentage from completed and total counts
+     * @param completed Number of completed items
+     * @param total Total number of items
+     * @returns Progress percentage (0-100)
+     */
+    calculateProgress(completed, total) {
+        if (total === 0)
+            return 0;
+        return Math.round((completed / total) * 100);
+    }
     // ========================================================================
     // Route Initialization
     // ========================================================================
@@ -282,6 +293,7 @@ class SolariaDashboardServer {
         // Sprints
         this.app.get('/api/projects/:id/sprints', this.getProjectSprints.bind(this));
         this.app.get('/api/sprints/:id', this.getSprintById.bind(this));
+        this.app.get('/api/sprints/:id/full', this.getSprintFullHierarchy.bind(this));
         this.app.post('/api/projects/:id/sprints', this.createSprint.bind(this));
         this.app.put('/api/sprints/:id', this.updateSprint.bind(this));
         this.app.delete('/api/sprints/:id', this.deleteSprint.bind(this));
@@ -1275,6 +1287,9 @@ class SolariaDashboardServer {
                     p.*,
                     (SELECT COUNT(*) FROM tasks WHERE project_id = p.id) as total_tasks,
                     (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'completed') as completed_tasks,
+                    (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'pending') as tasks_pending,
+                    (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'in_progress') as tasks_in_progress,
+                    (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'blocked') as tasks_blocked,
                     (SELECT COUNT(DISTINCT assigned_agent_id) FROM tasks WHERE project_id = p.id) as agents_assigned,
                     (SELECT COUNT(*) FROM alerts WHERE project_id = p.id AND status = 'active') as active_alerts
                 FROM projects p
@@ -1760,9 +1775,13 @@ class SolariaDashboardServer {
             const { status } = req.query;
             let query = `
                 SELECT e.*,
-                    (SELECT COUNT(*) FROM tasks WHERE epic_id = e.id) as tasks_count,
+                    s.name as sprint_name,
+                    s.sprint_number,
+                    s.status as sprint_status,
+                    (SELECT COUNT(*) FROM tasks WHERE epic_id = e.id) as tasks_total,
                     (SELECT COUNT(*) FROM tasks WHERE epic_id = e.id AND status = 'completed') as tasks_completed
                 FROM epics e
+                LEFT JOIN sprints s ON e.sprint_id = s.id
                 WHERE e.project_id = ?
             `;
             const params = [id];
@@ -1771,7 +1790,12 @@ class SolariaDashboardServer {
                 params.push(status);
             }
             query += ' ORDER BY e.epic_number ASC';
-            const [epics] = await this.db.execute(query, params);
+            const [epicsRaw] = await this.db.execute(query, params);
+            // Calculate progress for each epic
+            const epics = epicsRaw.map((epic) => ({
+                ...epic,
+                progress: this.calculateProgress(epic.tasks_completed, epic.tasks_total),
+            }));
             res.json({ epics });
         }
         catch (error) {
@@ -1941,9 +1965,21 @@ class SolariaDashboardServer {
             const { status } = req.query;
             let query = `
                 SELECT s.*,
-                    (SELECT COUNT(*) FROM tasks WHERE sprint_id = s.id) as tasks_count,
-                    (SELECT COUNT(*) FROM tasks WHERE sprint_id = s.id AND status = 'completed') as tasks_completed,
-                    (SELECT SUM(estimated_hours) FROM tasks WHERE sprint_id = s.id) as total_estimated_hours
+                    (
+                        SELECT COUNT(DISTINCT t.id)
+                        FROM tasks t
+                        LEFT JOIN epics e ON t.epic_id = e.id
+                        WHERE t.sprint_id = s.id OR e.sprint_id = s.id
+                    ) as tasks_total,
+                    (
+                        SELECT COUNT(DISTINCT t.id)
+                        FROM tasks t
+                        LEFT JOIN epics e ON t.epic_id = e.id
+                        WHERE (t.sprint_id = s.id OR e.sprint_id = s.id)
+                          AND t.status = 'completed'
+                    ) as tasks_completed,
+                    (SELECT COUNT(*) FROM epics WHERE sprint_id = s.id) as epics_total,
+                    (SELECT COUNT(*) FROM epics WHERE sprint_id = s.id AND status = 'completed') as epics_completed
                 FROM sprints s
                 WHERE s.project_id = ?
             `;
@@ -1953,7 +1989,12 @@ class SolariaDashboardServer {
                 params.push(status);
             }
             query += ' ORDER BY s.sprint_number ASC';
-            const [sprints] = await this.db.execute(query, params);
+            const [sprintsRaw] = await this.db.execute(query, params);
+            // Calculate progress for each sprint
+            const sprints = sprintsRaw.map((sprint) => ({
+                ...sprint,
+                progress: this.calculateProgress(sprint.tasks_completed, sprint.tasks_total),
+            }));
             res.json({ sprints });
         }
         catch (error) {
@@ -2124,6 +2165,77 @@ class SolariaDashboardServer {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             console.error('Delete sprint error:', errorMessage);
             res.status(500).json({ error: 'Failed to delete sprint' });
+        }
+    }
+    /**
+     * Get full Sprint hierarchy with Epics and Tasks
+     * Returns Sprint → Epics → Tasks structure
+     */
+    async getSprintFullHierarchy(req, res) {
+        try {
+            const { id } = req.params;
+            // 1. Get sprint details
+            const [sprints] = await this.db.execute(`
+                SELECT s.*, p.name as project_name
+                FROM sprints s
+                LEFT JOIN projects p ON s.project_id = p.id
+                WHERE s.id = ?
+            `, [id]);
+            if (sprints.length === 0) {
+                res.status(404).json({ error: 'Sprint not found' });
+                return;
+            }
+            const sprint = sprints[0];
+            // 2. Get epics in this sprint
+            const [epics] = await this.db.execute(`
+                SELECT e.*,
+                    (SELECT COUNT(*) FROM tasks WHERE epic_id = e.id) as tasks_total,
+                    (SELECT COUNT(*) FROM tasks WHERE epic_id = e.id AND status = 'completed') as tasks_completed
+                FROM epics e
+                WHERE e.sprint_id = ?
+                ORDER BY e.epic_number ASC
+            `, [id]);
+            // 3. Get tasks for each epic
+            const epicsWithTasks = await Promise.all(epics.map(async (epic) => {
+                const [tasks] = await this.db.execute(`
+                        SELECT id, task_number, title, status, progress, priority, estimated_hours
+                        FROM tasks
+                        WHERE epic_id = ?
+                        ORDER BY priority DESC, task_number ASC
+                    `, [epic.id]);
+                return {
+                    ...epic,
+                    progress: this.calculateProgress(epic.tasks_completed, epic.tasks_total),
+                    tasks,
+                };
+            }));
+            // 4. Get standalone tasks (direct sprint assignment, no epic)
+            const [standaloneTasks] = await this.db.execute(`
+                SELECT id, task_number, title, status, progress, priority, estimated_hours
+                FROM tasks
+                WHERE sprint_id = ? AND epic_id IS NULL
+                ORDER BY priority DESC, task_number ASC
+            `, [id]);
+            // 5. Calculate sprint progress
+            const totalTasks = epicsWithTasks.reduce((sum, e) => sum + e.tasks_total, 0) + standaloneTasks.length;
+            const completedTasks = epicsWithTasks.reduce((sum, e) => sum + e.tasks_completed, 0) +
+                standaloneTasks.filter((t) => t.status === 'completed').length;
+            res.json({
+                sprint: {
+                    ...sprint,
+                    progress: this.calculateProgress(completedTasks, totalTasks),
+                    epics_total: epicsWithTasks.length,
+                    tasks_total: totalTasks,
+                    tasks_completed: completedTasks,
+                },
+                epics: epicsWithTasks,
+                standaloneTasks,
+            });
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Get sprint full hierarchy error:', errorMessage);
+            res.status(500).json({ error: 'Failed to get sprint hierarchy' });
         }
     }
     async getProjectClient(req, res) {
@@ -4308,6 +4420,9 @@ class SolariaDashboardServer {
             const [techDebt] = await this.db.execute(`
                 SELECT COUNT(*) as count FROM tasks WHERE status = 'blocked' OR priority = 'critical'
             `);
+            const [projects] = await this.db.execute(`
+                SELECT id, name, status, code, description FROM projects ORDER BY created_at DESC
+            `);
             res.json({
                 role: 'CTO',
                 title: 'Technology Overview',
@@ -4320,6 +4435,7 @@ class SolariaDashboardServer {
                     agentEfficiency: Math.round(techMetrics[0].avg_efficiency || 90),
                     techDebtItems: techDebt[0].count
                 },
+                projects: projects,
                 agents: agents,
                 techStack: {
                     frontend: ['HTML5', 'TailwindCSS', 'Chart.js', 'Socket.IO'],
@@ -4739,7 +4855,7 @@ class SolariaDashboardServer {
                 m.tags = m.tags ? JSON.parse(m.tags) : [];
                 m.metadata = m.metadata ? JSON.parse(m.metadata) : {};
             });
-            res.json({ memories, count: memories.length, query });
+            res.json({ results: memories, count: memories.length, query });
         }
         catch (error) {
             console.error('Search memories error:', error);

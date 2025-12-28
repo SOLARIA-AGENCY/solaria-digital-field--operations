@@ -15,6 +15,8 @@ export declare function findAllTasks(filters?: {
     title: string;
     description: string | null;
     projectId: number | null;
+    epicId: number | null;
+    sprintId: number | null;
     agentId: number | null;
     assignedAgentId: number | null;
     assignedBy: number | null;
@@ -35,6 +37,8 @@ export declare function findTaskById(id: number): Promise<{
     title: string;
     description: string | null;
     projectId: number | null;
+    epicId: number | null;
+    sprintId: number | null;
     agentId: number | null;
     assignedAgentId: number | null;
     assignedBy: number | null;
@@ -57,6 +61,8 @@ export declare function updateTask(id: number, data: Partial<NewTask>): Promise<
     title: string;
     description: string | null;
     projectId: number | null;
+    epicId: number | null;
+    sprintId: number | null;
     agentId: number | null;
     assignedAgentId: number | null;
     assignedBy: number | null;
@@ -77,6 +83,8 @@ export declare function completeTask(id: number, notes?: string): Promise<{
     title: string;
     description: string | null;
     projectId: number | null;
+    epicId: number | null;
+    sprintId: number | null;
     agentId: number | null;
     assignedAgentId: number | null;
     assignedBy: number | null;

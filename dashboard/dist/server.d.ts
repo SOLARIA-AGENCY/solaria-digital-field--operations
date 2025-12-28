@@ -33,6 +33,13 @@ declare class SolariaDashboardServer {
      * Calculate cosine similarity between two embeddings
      */
     private cosineSimilarity;
+    /**
+     * Calculate progress percentage from completed and total counts
+     * @param completed Number of completed items
+     * @param total Total number of items
+     * @returns Progress percentage (0-100)
+     */
+    private calculateProgress;
     private initializeRoutes;
     private initializeSocketIO;
     private startRealTimeUpdates;
@@ -78,6 +85,11 @@ declare class SolariaDashboardServer {
     private createSprint;
     private updateSprint;
     private deleteSprint;
+    /**
+     * Get full Sprint hierarchy with Epics and Tasks
+     * Returns Sprint → Epics → Tasks structure
+     */
+    private getSprintFullHierarchy;
     private getProjectClient;
     private updateProjectClient;
     private getProjectDocuments;

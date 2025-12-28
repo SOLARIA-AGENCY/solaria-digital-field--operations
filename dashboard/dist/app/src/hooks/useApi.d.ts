@@ -1,8 +1,8 @@
-import type { Project, Task, TaskItem, Epic, Sprint } from '@/types';
+import type { Project, Task, TaskItem, Memory, Epic, Sprint, InlineDocument } from '@/types';
 export declare function useVerifyAuth(): import("@tanstack/react-query").UseQueryResult<any, Error>;
 export declare function useDashboardOverview(): import("@tanstack/react-query").UseQueryResult<DashboardStats, Error>;
 export declare function useDashboardAlerts(): import("@tanstack/react-query").UseQueryResult<any[], Error>;
-export declare function useProjects(): import("@tanstack/react-query").UseQueryResult<Project[], Error>;
+export declare function useProjects(): import("@tanstack/react-query").UseQueryResult<any, Error>;
 export declare function useProject(id: number): import("@tanstack/react-query").UseQueryResult<Project, Error>;
 export declare function useCreateProject(): import("@tanstack/react-query").UseMutationResult<unknown, Error, Project, unknown>;
 export declare function useUpdateProject(): import("@tanstack/react-query").UseMutationResult<unknown, Error, {
@@ -39,6 +39,11 @@ export declare function useBoostMemory(): import("@tanstack/react-query").UseMut
     id: number;
     amount?: number;
 }, unknown>;
+export declare function useMemoryRelated(id: number): import("@tanstack/react-query").UseQueryResult<{
+    id: number;
+    relationshipType: string;
+    relatedMemory: Memory;
+}[], Error>;
 export declare function useTaskItems(taskId: number): import("@tanstack/react-query").UseQueryResult<TaskItem[], Error>;
 export declare function useCreateTaskItems(): import("@tanstack/react-query").UseMutationResult<unknown, Error, {
     taskId: number;
@@ -88,6 +93,15 @@ export declare function useDeleteEpic(): import("@tanstack/react-query").UseMuta
     id: number;
     projectId: number;
 }, unknown>;
+export declare function useEpic(epicId: number | null): import("@tanstack/react-query").UseQueryResult<{
+    epic: Epic & {
+        tasks_count: number;
+        tasks_completed: number;
+        project_name: string;
+        project_code: string;
+    };
+    tasks: Task[];
+} | null, Error>;
 export declare function useProjectSprints(projectId: number): import("@tanstack/react-query").UseQueryResult<Sprint[], Error>;
 export declare function useCreateSprint(): import("@tanstack/react-query").UseMutationResult<unknown, Error, {
     projectId: number;
@@ -102,3 +116,30 @@ export declare function useDeleteSprint(): import("@tanstack/react-query").UseMu
     id: number;
     projectId: number;
 }, unknown>;
+export declare function useSprint(sprintId: number | null): import("@tanstack/react-query").UseQueryResult<{
+    sprint: Sprint & {
+        tasks_count: number;
+        tasks_completed: number;
+        total_estimated_hours: number;
+        project_name: string;
+        project_code: string;
+    };
+    tasks: Task[];
+} | null, Error>;
+export declare function useSprintFullHierarchy(sprintId: number | null): import("@tanstack/react-query").UseQueryResult<any, Error>;
+export declare function useProjectInlineDocuments(projectId: number, type?: string): import("@tanstack/react-query").UseQueryResult<InlineDocument[], Error>;
+export declare function useInlineDocument(id: number): import("@tanstack/react-query").UseQueryResult<InlineDocument, Error>;
+export declare function useCreateInlineDocument(): import("@tanstack/react-query").UseMutationResult<unknown, Error, {
+    projectId: number;
+    data: Partial<InlineDocument>;
+}, unknown>;
+export declare function useUpdateInlineDocument(): import("@tanstack/react-query").UseMutationResult<unknown, Error, {
+    id: number;
+    projectId: number;
+    data: Partial<InlineDocument>;
+}, unknown>;
+export declare function useDeleteInlineDocument(): import("@tanstack/react-query").UseMutationResult<unknown, Error, {
+    id: number;
+    projectId: number;
+}, unknown>;
+export declare function useSearchInlineDocuments(query: string, projectId?: number, type?: string): import("@tanstack/react-query").UseQueryResult<InlineDocument[], Error>;

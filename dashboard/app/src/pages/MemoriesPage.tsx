@@ -151,6 +151,7 @@ function MemoryRow({ memory, onClick }: { memory: Memory; onClick?: () => void }
 export function MemoriesPage() {
     const [search, setSearch] = useState('');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [selectedImportance, setSelectedImportance] = useState<string[]>([]);
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [selectedMemoryId, setSelectedMemoryId] = useState<number | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -176,13 +177,35 @@ export function MemoriesPage() {
     const { data: tags } = useMemoryTags();
     const { data: searchResults } = useSearchMemories(search, selectedTags);
 
-    const displayMemories = search.length > 2 ? searchResults : memories;
+    // Apply all filters
+    const baseMemories = search.length > 2 ? searchResults : memories;
+    const displayMemories = (baseMemories || []).filter((memory: Memory) => {
+        // Importance filter
+        if (selectedImportance.length > 0) {
+            const level = getImportanceLevel(memory.importance);
+            if (!selectedImportance.includes(level)) return false;
+        }
+        return true;
+    });
     const memoryCount = displayMemories?.length || 0;
 
     const toggleTag = (tag: string) => {
         setSelectedTags((prev) =>
             prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
         );
+    };
+
+    const toggleImportance = (level: string) => {
+        setSelectedImportance((prev) =>
+            prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
+        );
+    };
+
+    const getImportanceLevel = (importance: number): string => {
+        const percent = importance * 100;
+        if (percent >= 70) return 'high';
+        if (percent >= 40) return 'medium';
+        return 'low';
     };
 
     if (isLoading) {
@@ -296,7 +319,7 @@ export function MemoriesPage() {
 
                 {/* Tags filter */}
                 {tags && tags.length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
                         <Tag className="h-4 w-4 text-muted-foreground" />
                         {tags.map((tag: { name: string; usageCount: number }) => {
                             const colorConfig = TAG_COLORS[tag.name] || { bg: 'rgba(100, 116, 139, 0.15)', color: '#64748b' };
@@ -321,6 +344,35 @@ export function MemoriesPage() {
                         })}
                     </div>
                 )}
+
+                {/* Importance filter */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Importancia:</span>
+                    {(['high', 'medium', 'low'] as const).map((level) => {
+                        const isSelected = selectedImportance.includes(level);
+                        const count = (baseMemories || []).filter((m: Memory) => getImportanceLevel(m.importance) === level).length;
+                        if (count === 0) return null;
+                        const config = {
+                            high: { label: '🔴 Alta (≥70%)', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' },
+                            medium: { label: '🟡 Media (40-69%)', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' },
+                            low: { label: '🟢 Baja (<40%)', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
+                        }[level];
+                        return (
+                            <button
+                                key={level}
+                                onClick={() => toggleImportance(level)}
+                                className="memory-tag-filter"
+                                style={
+                                    isSelected
+                                        ? { backgroundColor: config.color, color: '#fff' }
+                                        : { backgroundColor: config.bg, color: config.color }
+                                }
+                            >
+                                {config.label} ({count})
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Memories Grid/List */}

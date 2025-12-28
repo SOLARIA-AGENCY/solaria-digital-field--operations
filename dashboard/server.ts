@@ -1498,6 +1498,9 @@ class SolariaDashboardServer {
                     p.*,
                     (SELECT COUNT(*) FROM tasks WHERE project_id = p.id) as total_tasks,
                     (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'completed') as completed_tasks,
+                    (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'pending') as tasks_pending,
+                    (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'in_progress') as tasks_in_progress,
+                    (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'blocked') as tasks_blocked,
                     (SELECT COUNT(DISTINCT assigned_agent_id) FROM tasks WHERE project_id = p.id) as agents_assigned,
                     (SELECT COUNT(*) FROM alerts WHERE project_id = p.id AND status = 'active') as active_alerts
                 FROM projects p

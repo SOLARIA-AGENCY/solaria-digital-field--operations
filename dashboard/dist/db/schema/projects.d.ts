@@ -317,39 +317,60 @@ export declare const projects: import("drizzle-orm/mysql-core").MySqlTableWithCo
         tags: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "tags";
             tableName: "projects";
-            dataType: "string";
-            columnType: "MySqlText";
-            data: string;
+            dataType: "json";
+            columnType: "MySqlJson";
+            data: string[];
             driverParam: string;
             notNull: false;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: [string, ...string[]];
+            enumValues: undefined;
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            $type: string[];
+        }>;
         stack: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "stack";
             tableName: "projects";
-            dataType: "string";
-            columnType: "MySqlText";
-            data: string;
+            dataType: "json";
+            columnType: "MySqlJson";
+            data: string[];
             driverParam: string;
             notNull: false;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: [string, ...string[]];
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            $type: string[];
+        }>;
+        createdBy: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "created_by";
+            tableName: "projects";
+            dataType: "number";
+            columnType: "MySqlInt";
+            data: number;
+            driverParam: string | number;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
             baseColumn: never;
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
-        createdBy: import("drizzle-orm/mysql-core").MySqlColumn<{
-            name: "created_by";
+        officeClientId: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "office_client_id";
             tableName: "projects";
             dataType: "number";
             columnType: "MySqlInt";
@@ -903,7 +924,7 @@ export declare const projectRequests: import("drizzle-orm/mysql-core").MySqlTabl
             tableName: "project_requests";
             dataType: "string";
             columnType: "MySqlEnumColumn";
-            data: "completed" | "pending" | "in_progress" | "approved" | "in_review" | "rejected";
+            data: "completed" | "pending" | "approved" | "in_review" | "in_progress" | "rejected";
             driverParam: string;
             notNull: false;
             hasDefault: true;

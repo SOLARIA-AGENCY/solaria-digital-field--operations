@@ -12,6 +12,7 @@ import {
     Loader2,
     AlertCircle,
     Archive,
+    Search,
 } from 'lucide-react';
 import { useDashboardOverview, useProjects, useTasks } from '@/hooks/useApi';
 import { formatRelativeTime } from '@/lib/utils';
@@ -176,24 +177,57 @@ export function DashboardPage() {
     const { data: projects, isLoading: projectsLoading } = useProjects();
     const { data: allTasks, isLoading: tasksLoading } = useTasks({});
 
+    // Search and filter state
+    const [search, setSearch] = useState('');
+    const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
+
     // State for new tasks (last 7 days)
     const [newTasks, setNewTasks] = useState<Task[]>([]);
     const [completedTasks, setCompletedTasks] = useState<CompletedTask[]>([]);
+
+    const togglePriority = (priority: string) => {
+        setSelectedPriorities((prev) =>
+            prev.includes(priority) ? prev.filter((p) => p !== priority) : [...prev, priority]
+        );
+    };
 
     useEffect(() => {
         if (allTasks) {
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+            // Helper to filter tasks by search and priority
+            const applyFilters = (task: Task): boolean => {
+                // Search filter
+                if (search && search.length >= 3) {
+                    const searchLower = search.toLowerCase();
+                    const matchesSearch = (
+                        task.title.toLowerCase().includes(searchLower) ||
+                        (task.taskCode?.toLowerCase().includes(searchLower)) ||
+                        (task.description?.toLowerCase().includes(searchLower))
+                    );
+                    if (!matchesSearch) return false;
+                }
+
+                // Priority filter
+                if (selectedPriorities.length > 0) {
+                    if (!selectedPriorities.includes(task.priority || 'low')) return false;
+                }
+
+                return true;
+            };
+
             // Filter new tasks from last 7 days
-            const recentNew = allTasks.filter((task: Task) => {
-                const createdDate = new Date(task.createdAt);
-                return createdDate >= sevenDaysAgo;
-            }).slice(0, 10);
+            const recentNew = allTasks
+                .filter((task: Task) => {
+                    const createdDate = new Date(task.createdAt);
+                    return createdDate >= sevenDaysAgo && applyFilters(task);
+                })
+                .slice(0, 10);
 
             // Filter completed tasks
             const completed = allTasks
-                .filter((task: Task) => task.status === 'completed')
+                .filter((task: Task) => task.status === 'completed' && applyFilters(task))
                 .sort((a: Task, b: Task) => {
                     const dateA = new Date(a.completedAt || a.updatedAt);
                     const dateB = new Date(b.completedAt || b.updatedAt);
@@ -211,7 +245,7 @@ export function DashboardPage() {
             setNewTasks(recentNew);
             setCompletedTasks(completed);
         }
-    }, [allTasks, projects]);
+    }, [allTasks, projects, search, selectedPriorities]);
 
     const handleNavigateProjects = () => navigate('/projects');
     const handleNavigateProject = (projectId: number) => navigate(`/projects/${projectId}`);
@@ -253,6 +287,55 @@ export function DashboardPage() {
                     icon={Bot}
                     iconClass="agents"
                 />
+            </div>
+
+            {/* Search and Filters */}
+            <div className="bg-card border border-border rounded-xl p-5">
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            type="text"
+                            placeholder="Buscar en feeds (mínimo 3 caracteres)..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background pl-10 pr-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                        {completedTasks.length + newTasks.length} items
+                    </span>
+                </div>
+
+                {/* Priority Filters */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Prioridad:</span>
+                    {(['critical', 'high', 'medium', 'low'] as const).map((priority) => {
+                        const isSelected = selectedPriorities.includes(priority);
+                        const count = (allTasks || []).filter((t: Task) => (t.priority || 'low') === priority).length;
+                        if (count === 0) return null;
+                        const config = {
+                            critical: { label: '🔴 Crítica', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' },
+                            high: { label: '🟠 Alta', color: '#f97316', bg: 'rgba(249, 115, 22, 0.15)' },
+                            medium: { label: '🟡 Media', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' },
+                            low: { label: '🟢 Baja', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
+                        }[priority];
+                        return (
+                            <button
+                                key={priority}
+                                onClick={() => togglePriority(priority)}
+                                className="memory-tag-filter"
+                                style={
+                                    isSelected
+                                        ? { backgroundColor: config.color, color: '#fff' }
+                                        : { backgroundColor: config.bg, color: config.color }
+                                }
+                            >
+                                {config.label} ({count})
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Dashboard Grid - 3 Widgets */}

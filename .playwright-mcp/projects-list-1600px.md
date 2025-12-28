@@ -1,0 +1,245 @@
+### Page state
+- Page URL: https://dfo.solaria.agency/projects
+- Page Title: SOLARIA DFO Dashboard
+- Page Snapshot:
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e6]:
+      - img "SOLARIA" [ref=e7]
+      - generic [ref=e8]: SOLARIA
+    - navigation [ref=e9]:
+      - generic [ref=e10]: Navegacion
+      - link "Dashboard" [ref=e11] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e12]
+        - generic [ref=e17]: Dashboard
+      - link "Proyectos" [ref=e18] [cursor=pointer]:
+        - /url: /projects
+        - img [ref=e19]
+        - generic [ref=e21]: Proyectos
+      - link "Negocios" [ref=e22] [cursor=pointer]:
+        - /url: /businesses
+        - img [ref=e23]
+        - generic [ref=e26]: Negocios
+      - link "Infraestructura" [ref=e27] [cursor=pointer]:
+        - /url: /infrastructure
+        - img [ref=e28]
+        - generic [ref=e31]: Infraestructura
+      - link "Design Hub" [ref=e32] [cursor=pointer]:
+        - /url: /design-hub
+        - img [ref=e33]
+        - generic [ref=e39]: Design Hub
+      - link "Memorias" [ref=e40] [cursor=pointer]:
+        - /url: /memories
+        - img [ref=e41]
+        - generic [ref=e51]: Memorias
+      - link "Archivo" [ref=e52] [cursor=pointer]:
+        - /url: /projects/archived
+        - img [ref=e53]
+        - generic [ref=e56]: Archivo
+      - generic [ref=e58]: Enlaces
+      - link "n8n Workflows" [ref=e59] [cursor=pointer]:
+        - /url: https://n8n.solaria.agency
+        - img [ref=e60]
+        - generic [ref=e64]: n8n Workflows
+        - img [ref=e65]
+      - link "VibeSDK" [ref=e69] [cursor=pointer]:
+        - /url: https://docs.vibe-sdk.com
+        - img [ref=e70]
+        - generic [ref=e74]: VibeSDK
+        - img [ref=e75]
+    - generic [ref=e80]:
+      - generic [ref=e82]:
+        - generic [ref=e83]: SOLARIA DFO
+        - generic [ref=e84]: v3.5.1-8d03708
+      - button "Colapsar sidebar" [ref=e86] [cursor=pointer]:
+        - img [ref=e87]
+  - generic [ref=e89]:
+    - banner [ref=e90]:
+      - heading "Digital Field Operations" [level=1] [ref=e92]
+      - generic [ref=e93]:
+        - button [ref=e95] [cursor=pointer]:
+          - img [ref=e96]
+        - button "Modo claro" [ref=e99] [cursor=pointer]:
+          - img [ref=e100]
+        - button "Carlos J. Perez ceo" [ref=e107] [cursor=pointer]:
+          - generic [ref=e108]:
+            - img [ref=e110]
+            - generic [ref=e113]:
+              - generic [ref=e114]: Carlos J. Perez
+              - generic [ref=e115]: ceo
+          - img [ref=e116]
+    - main [ref=e118]:
+      - generic [ref=e119]:
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - heading "Proyectos" [level=1] [ref=e134]
+            - paragraph [ref=e135]: 8 proyectos en el pipeline
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - button "NOMBRE" [ref=e138] [cursor=pointer]
+              - button "FECHA" [ref=e139] [cursor=pointer]
+              - button "$$$" [ref=e140] [cursor=pointer]
+              - button "%" [ref=e141] [cursor=pointer]
+              - button "FASE" [ref=e142] [cursor=pointer]
+            - generic [ref=e143]:
+              - button "Vista Grid" [ref=e144] [cursor=pointer]:
+                - img [ref=e145]
+              - button "Vista Lista" [active] [ref=e150] [cursor=pointer]:
+                - img [ref=e151]
+        - table [ref=e993] [cursor=pointer]:
+          - rowgroup [ref=e994]:
+            - row "Proyecto Fase Tareas Pend. Compl. Budget Agentes Entrega Progreso" [ref=e1148]:
+              - columnheader "Proyecto" [ref=e996]
+              - columnheader "Fase" [ref=e997]
+              - columnheader "Tareas" [ref=e998]
+              - columnheader "Pend." [ref=e999]
+              - columnheader "Compl." [ref=e1000]
+              - columnheader "Budget" [ref=e1149]
+              - columnheader "Agentes" [ref=e1150]
+              - columnheader "Entrega" [ref=e1001]
+              - columnheader "Progreso" [ref=e1002]
+          - rowgroup [ref=e1003]:
+            - row "AGUA BENDITA GBN Planificacion 0 0 0 - 0 - 0%" [ref=e1151]:
+              - cell "AGUA BENDITA GBN" [ref=e1005]:
+                - generic [ref=e1006]:
+                  - img [ref=e1008]
+                  - generic [ref=e1010]:
+                    - generic [ref=e1011]: AGUA BENDITA
+                    - generic [ref=e1012]: GBN
+              - cell "Planificacion" [ref=e1013]:
+                - generic [ref=e1014]: Planificacion
+              - cell "0" [ref=e1015]
+              - cell "0" [ref=e1016]
+              - cell "0" [ref=e1017]
+              - cell "-" [ref=e1152]
+              - cell "0" [ref=e1153]
+              - cell "-" [ref=e1018]
+              - cell "0%" [ref=e1019]:
+                - generic [ref=e1021]: 0%
+            - row "Akademate.com AKD Planificacion 39 15 24 $250K 1 - 0%" [ref=e1154]:
+              - cell "Akademate.com AKD" [ref=e1023]:
+                - generic [ref=e1024]:
+                  - img [ref=e1026]
+                  - generic [ref=e1028]:
+                    - generic [ref=e1029]: Akademate.com
+                    - generic [ref=e1030]: AKD
+              - cell "Planificacion" [ref=e1031]:
+                - generic [ref=e1032]: Planificacion
+              - cell "39" [ref=e1033]
+              - cell "15" [ref=e1034]
+              - cell "24" [ref=e1035]
+              - cell "$250K" [ref=e1155]
+              - cell "1" [ref=e1156]
+              - cell "-" [ref=e1036]
+              - cell "0%" [ref=e1037]:
+                - generic [ref=e1039]: 0%
+            - row "BRIK-64 Framework BRK Planificacion 12 0 12 $0.00 1 - 0%" [ref=e1157]:
+              - cell "BRIK-64 Framework BRK" [ref=e1041]:
+                - generic [ref=e1042]:
+                  - img [ref=e1044]
+                  - generic [ref=e1046]:
+                    - generic [ref=e1047]: BRIK-64 Framework
+                    - generic [ref=e1048]: BRK
+              - cell "Planificacion" [ref=e1049]:
+                - generic [ref=e1050]: Planificacion
+              - cell "12" [ref=e1051]
+              - cell "0" [ref=e1052]
+              - cell "12" [ref=e1053]
+              - cell "$0.00" [ref=e1158]
+              - cell "1" [ref=e1159]
+              - cell "-" [ref=e1054]
+              - cell "0%" [ref=e1055]:
+                - generic [ref=e1057]: 0%
+            - row "DFO Enhancement Plan 2025 DFN Planificacion 10 0 10 $5K 1 - 0%" [ref=e1160]:
+              - cell "DFO Enhancement Plan 2025 DFN" [ref=e1059]:
+                - generic [ref=e1060]:
+                  - img [ref=e1062]
+                  - generic [ref=e1064]:
+                    - generic [ref=e1065]: DFO Enhancement Plan 2025
+                    - generic [ref=e1066]: DFN
+              - cell "Planificacion" [ref=e1067]:
+                - generic [ref=e1068]: Planificacion
+              - cell "10" [ref=e1069]
+              - cell "0" [ref=e1070]
+              - cell "10" [ref=e1071]
+              - cell "$5K" [ref=e1161]
+              - cell "1" [ref=e1162]
+              - cell "-" [ref=e1072]
+              - cell "0%" [ref=e1073]:
+                - generic [ref=e1075]: 0%
+            - row "Inmobiliaria Virgen del Rocío PRJ-002 Planificacion 10 4 6 - 1 - 0%" [ref=e1163]:
+              - cell "Inmobiliaria Virgen del Rocío PRJ-002" [ref=e1077]:
+                - generic [ref=e1078]:
+                  - img [ref=e1080]
+                  - generic [ref=e1082]:
+                    - generic [ref=e1083]: Inmobiliaria Virgen del Rocío
+                    - generic [ref=e1084]: PRJ-002
+              - cell "Planificacion" [ref=e1085]:
+                - generic [ref=e1086]: Planificacion
+              - cell "10" [ref=e1087]
+              - cell "4" [ref=e1088]
+              - cell "6" [ref=e1089]
+              - cell "-" [ref=e1164]
+              - cell "1" [ref=e1165]
+              - cell "-" [ref=e1090]
+              - cell "0%" [ref=e1091]:
+                - generic [ref=e1093]: 0%
+            - row "OFFICE.SOLARIA.AGENCY PRJ-001 Planificacion 58 32 26 $25K 1 - 0%" [ref=e1166]:
+              - cell "OFFICE.SOLARIA.AGENCY PRJ-001" [ref=e1095]:
+                - generic [ref=e1096]:
+                  - img [ref=e1098]
+                  - generic [ref=e1100]:
+                    - generic [ref=e1101]: OFFICE.SOLARIA.AGENCY
+                    - generic [ref=e1102]: PRJ-001
+              - cell "Planificacion" [ref=e1103]:
+                - generic [ref=e1104]: Planificacion
+              - cell "58" [ref=e1105]
+              - cell "32" [ref=e1106]
+              - cell "26" [ref=e1107]
+              - cell "$25K" [ref=e1167]
+              - cell "1" [ref=e1168]
+              - cell "-" [ref=e1108]
+              - cell "0%" [ref=e1109]:
+                - generic [ref=e1111]: 0%
+            - row "SOLARIA Digital Field Operations DFO Planificacion 130 5 125 $12K 5 - 0%" [ref=e1169]:
+              - cell "SOLARIA Digital Field Operations DFO" [ref=e1113]:
+                - generic [ref=e1114]:
+                  - img [ref=e1116]
+                  - generic [ref=e1118]:
+                    - generic [ref=e1119]: SOLARIA Digital Field Operations
+                    - generic [ref=e1120]: DFO
+              - cell "Planificacion" [ref=e1121]:
+                - generic [ref=e1122]: Planificacion
+              - cell "130" [ref=e1123]
+              - cell "5" [ref=e1124]
+              - cell "125" [ref=e1125]
+              - cell "$12K" [ref=e1170]
+              - cell "5" [ref=e1171]
+              - cell "-" [ref=e1126]
+              - cell "0%" [ref=e1127]:
+                - generic [ref=e1129]: 0%
+            - row "Vibe Platform PRJ-003 Planificacion 14 8 6 $15K 1 - 0%" [ref=e1172]:
+              - cell "Vibe Platform PRJ-003" [ref=e1131]:
+                - generic [ref=e1132]:
+                  - img [ref=e1134]
+                  - generic [ref=e1136]:
+                    - generic [ref=e1137]: Vibe Platform
+                    - generic [ref=e1138]: PRJ-003
+              - cell "Planificacion" [ref=e1139]:
+                - generic [ref=e1140]: Planificacion
+              - cell "14" [ref=e1141]
+              - cell "8" [ref=e1142]
+              - cell "6" [ref=e1143]
+              - cell "$15K" [ref=e1173]
+              - cell "1" [ref=e1174]
+              - cell "-" [ref=e1144]
+              - cell "0%" [ref=e1145]:
+                - generic [ref=e1147]: 0%
+    - contentinfo [ref=e122]:
+      - generic [ref=e128]: En vivo
+      - generic [ref=e129]: "Última sincronización: 10:59"
+      - link "Documentación" [ref=e131] [cursor=pointer]:
+        - /url: https://docs.solaria.agency
+```

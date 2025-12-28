@@ -33,6 +33,8 @@ export interface Project {
     tasksTotal?: number;
     tasksCompleted?: number;
     tasksPending?: number;
+    tasksInProgress?: number;
+    tasksBlocked?: number;
     activeAgents?: number;
     // Optional URL fields
     productionUrl?: string;

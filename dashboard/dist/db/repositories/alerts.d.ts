@@ -95,7 +95,7 @@ export declare function findActivityLogs(filters?: {
     action: string;
     details: string | null;
     category: "development" | "testing" | "deployment" | "system" | "management" | "security" | null;
-    level: "critical" | "error" | "warning" | "info" | "debug" | null;
+    level: "error" | "critical" | "warning" | "info" | "debug" | null;
     timestamp: Date | null;
     createdAt: Date | null;
 }[]>;
