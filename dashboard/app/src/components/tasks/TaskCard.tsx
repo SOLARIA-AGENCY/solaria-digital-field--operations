@@ -1,7 +1,6 @@
 import {
     Calendar,
     User,
-    Clock,
     CheckCircle2,
     AlertCircle,
     Flag,
@@ -24,6 +23,14 @@ const priorityConfig = {
     low: { color: 'text-green-500', bg: 'bg-green-500/10', label: 'Baja' },
 };
 
+const statusConfig = {
+    pending: { color: '#f6921d', bg: 'rgba(246, 146, 29, 0.1)', label: 'Pendiente' },
+    in_progress: { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)', label: 'En Progreso' },
+    review: { color: '#a855f7', bg: 'rgba(168, 85, 247, 0.1)', label: 'Revisión' },
+    completed: { color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', label: 'Completado' },
+    blocked: { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', label: 'Bloqueado' },
+};
+
 const typeConfig = {
     feature: { color: 'text-purple-500', bg: 'bg-purple-500/10', label: 'Feature' },
     bug: { color: 'text-red-500', bg: 'bg-red-500/10', label: 'Bug' },
@@ -36,6 +43,7 @@ const typeConfig = {
 export function TaskCard({ task, onClick, showProject = false, compact = false }: TaskCardProps) {
     const priority = priorityConfig[task.priority] || priorityConfig.medium;
     const type = typeConfig[task.type] || typeConfig.feature;
+    const status = statusConfig[task.status as keyof typeof statusConfig] || statusConfig.pending;
     const itemsTotal = task.itemsTotal || 0;
     const itemsCompleted = task.itemsCompleted || 0;
     const itemsProgress = itemsTotal > 0 ? Math.round((itemsCompleted / itemsTotal) * 100) : 0;
@@ -46,6 +54,7 @@ export function TaskCard({ task, onClick, showProject = false, compact = false }
             <div
                 onClick={onClick}
                 className="task-card-compact"
+                style={{ borderTopColor: status.color, borderTopWidth: '3px', borderTopStyle: 'solid' }}
             >
                 <div className="flex items-center gap-2 mb-1">
                     <span className={cn('task-badge', type.bg, type.color)}>{type.label}</span>
@@ -75,6 +84,7 @@ export function TaskCard({ task, onClick, showProject = false, compact = false }
                 task.status === 'blocked' && 'blocked',
                 isOverdue && 'overdue'
             )}
+            style={{ borderTopColor: status.color, borderTopWidth: '3px', borderTopStyle: 'solid' }}
         >
             {/* Header with badges */}
             <div className="task-card-header">
@@ -134,14 +144,6 @@ export function TaskCard({ task, onClick, showProject = false, compact = false }
                     <div className={cn('task-meta', isOverdue && 'text-red-500')}>
                         <Calendar className="h-3 w-3" />
                         <span>{formatRelativeTime(task.dueDate)}</span>
-                    </div>
-                )}
-
-                {/* Estimated hours */}
-                {task.estimatedHours && (
-                    <div className="task-meta">
-                        <Clock className="h-3 w-3" />
-                        <span>{task.estimatedHours}h</span>
                     </div>
                 )}
 

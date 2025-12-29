@@ -12,6 +12,7 @@ import {
     Clock,
     Globe,
     Shield,
+    Search,
 } from 'lucide-react';
 
 interface VPSServer {
@@ -143,11 +144,74 @@ function CopyButton({ text }: { text: string }) {
 
 export function InfrastructurePage() {
     const { vps, nemesis, cloudflare, sshKeys, databases } = INFRASTRUCTURE_DATA;
+    const [search, setSearch] = useState('');
+    const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+    const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
+    const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
 
-    const totalVPS = vps.length;
-    const totalOnline = vps.filter((v) => v.status === 'online').length;
-    const totalNemesis = nemesis.filter((n) => n.status === 'active').length;
-    const totalDomains = cloudflare.filter((c) => c.status === 'active').length;
+    // Toggle functions
+    const toggleType = (type: string) => {
+        setSelectedTypes((prev) =>
+            prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+        );
+    };
+
+    const toggleStatus = (status: string) => {
+        setSelectedStatus((prev) =>
+            prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+        );
+    };
+
+    const toggleProvider = (provider: string) => {
+        setSelectedProviders((prev) =>
+            prev.includes(provider) ? prev.filter((p) => p !== provider) : [...prev, provider]
+        );
+    };
+
+    // Filter logic
+    const filteredVPS = vps.filter((item) => {
+        if (search && search.length >= 3) {
+            const searchLower = search.toLowerCase();
+            const matchesSearch = (
+                item.name.toLowerCase().includes(searchLower) ||
+                item.ip.toLowerCase().includes(searchLower)
+            );
+            if (!matchesSearch) return false;
+        }
+        if (selectedTypes.length > 0 && !selectedTypes.includes('vps')) return false;
+        if (selectedStatus.length > 0 && !selectedStatus.includes(item.status)) return false;
+        if (selectedProviders.length > 0 && !selectedProviders.includes(item.provider.toLowerCase())) return false;
+        return true;
+    });
+
+    const filteredNemesis = nemesis.filter((item) => {
+        if (search && search.length >= 3) {
+            const searchLower = search.toLowerCase();
+            const matchesSearch = (
+                item.name.toLowerCase().includes(searchLower) ||
+                item.ip.toLowerCase().includes(searchLower)
+            );
+            if (!matchesSearch) return false;
+        }
+        if (selectedTypes.length > 0 && !selectedTypes.includes('nemesis')) return false;
+        if (selectedStatus.length > 0 && !selectedStatus.includes(item.status)) return false;
+        return true;
+    });
+
+    const filteredCloudflare = cloudflare.filter((item) => {
+        if (search && search.length >= 3) {
+            const searchLower = search.toLowerCase();
+            if (!item.domain.toLowerCase().includes(searchLower)) return false;
+        }
+        if (selectedTypes.length > 0 && !selectedTypes.includes('cloudflare')) return false;
+        if (selectedStatus.length > 0 && !selectedStatus.includes(item.status)) return false;
+        return true;
+    });
+
+    const totalVPS = filteredVPS.length;
+    const totalOnline = filteredVPS.filter((v) => v.status === 'online').length;
+    const totalNemesis = filteredNemesis.filter((n) => n.status === 'active').length;
+    const totalDomains = filteredCloudflare.filter((c) => c.status === 'active').length;
 
     return (
         <div className="space-y-6">
@@ -199,6 +263,121 @@ export function InfrastructurePage() {
                 </div>
             </div>
 
+            {/* Search and Filters */}
+            <div className="bg-card border border-border rounded-xl p-5">
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre o IP (mínimo 3 caracteres)..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full rounded-lg border border-border bg-background pl-10 pr-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                        {totalVPS + totalNemesis + totalDomains} recursos
+                    </span>
+                </div>
+
+                {/* Type Filters */}
+                <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tipo:</span>
+                    {(['vps', 'nemesis', 'cloudflare'] as const).map((type) => {
+                        const isSelected = selectedTypes.includes(type);
+                        const counts = {
+                            vps: vps.length,
+                            nemesis: nemesis.length,
+                            cloudflare: cloudflare.length,
+                        };
+                        const config = {
+                            vps: { label: 'VPS', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
+                            nemesis: { label: 'NEMESIS', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.15)' },
+                            cloudflare: { label: 'Cloudflare', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)' },
+                        }[type];
+                        return (
+                            <button
+                                key={type}
+                                onClick={() => toggleType(type)}
+                                className="memory-tag-filter"
+                                style={
+                                    isSelected
+                                        ? { backgroundColor: config.color, color: '#fff' }
+                                        : { backgroundColor: config.bg, color: config.color }
+                                }
+                            >
+                                {config.label} ({counts[type]})
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Status Filters */}
+                <div className="flex items-center gap-2 flex-wrap mb-3">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado:</span>
+                    {(['online', 'active', 'offline', 'inactive', 'maintenance', 'pending'] as const).map((status) => {
+                        const isSelected = selectedStatus.includes(status);
+                        const count = [
+                            ...vps.filter(v => v.status === status),
+                            ...nemesis.filter(n => n.status === status),
+                            ...cloudflare.filter(c => c.status === status),
+                        ].length;
+                        if (count === 0) return null;
+                        const config = {
+                            online: { label: '🟢 Online', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
+                            active: { label: '🟢 Activo', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' },
+                            offline: { label: '🔴 Offline', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' },
+                            inactive: { label: '🔴 Inactivo', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' },
+                            maintenance: { label: '🟡 Mantenimiento', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' },
+                            pending: { label: '🟡 Pendiente', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' },
+                        }[status];
+                        return (
+                            <button
+                                key={status}
+                                onClick={() => toggleStatus(status)}
+                                className="memory-tag-filter"
+                                style={
+                                    isSelected
+                                        ? { backgroundColor: config.color, color: '#fff' }
+                                        : { backgroundColor: config.bg, color: config.color }
+                                }
+                            >
+                                {config.label} ({count})
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Provider Filters */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Proveedor:</span>
+                    {(['hetzner', 'hostinger'] as const).map((provider) => {
+                        const isSelected = selectedProviders.includes(provider);
+                        const count = vps.filter(v => v.provider.toLowerCase() === provider).length;
+                        if (count === 0) return null;
+                        const config = {
+                            hetzner: { label: 'Hetzner', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' },
+                            hostinger: { label: 'Hostinger', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.15)' },
+                        }[provider];
+                        return (
+                            <button
+                                key={provider}
+                                onClick={() => toggleProvider(provider)}
+                                className="memory-tag-filter"
+                                style={
+                                    isSelected
+                                        ? { backgroundColor: config.color, color: '#fff' }
+                                        : { backgroundColor: config.bg, color: config.color }
+                                }
+                            >
+                                {config.label} ({count})
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
             {/* VPS Servers */}
             <div className="bg-card border border-border rounded-xl p-5">
                 <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
@@ -206,7 +385,7 @@ export function InfrastructurePage() {
                     SERVIDORES VPS
                 </h3>
                 <div className="space-y-4">
-                    {vps.map((server) => (
+                    {filteredVPS.map((server) => (
                         <div key={server.id} className="bg-accent/30 rounded-lg p-4">
                             <div className="flex items-start justify-between mb-3">
                                 <div>
@@ -246,7 +425,7 @@ export function InfrastructurePage() {
                     RED NEMESIS (Tailscale VPN)
                 </h3>
                 <div className="grid grid-cols-5 gap-3">
-                    {nemesis.map((device) => (
+                    {filteredNemesis.map((device) => (
                         <div key={device.id} className="bg-accent/30 rounded-lg p-3 text-center">
                             <div className={`w-2 h-2 rounded-full mx-auto mb-2 ${device.status === 'active' ? 'bg-green-400' : 'bg-gray-400'}`} />
                             <div className="text-xs font-medium truncate" title={device.name}>
@@ -267,7 +446,7 @@ export function InfrastructurePage() {
                         CLOUDFLARE DOMINIOS
                     </h3>
                     <div className="space-y-2">
-                        {cloudflare.map((domain) => (
+                        {filteredCloudflare.map((domain) => (
                             <div key={domain.id} className="flex items-center justify-between p-2 bg-accent/30 rounded-lg">
                                 <div className="flex items-center gap-2">
                                     {domain.ssl && <Shield className="h-4 w-4 text-green-400" />}

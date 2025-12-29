@@ -5,39 +5,39 @@ import { OfficeProjectsPage } from '@pages/OfficeProjectsPage';
 import { OfficeClientsPage } from '@pages/OfficeClientsPage';
 import { OfficeAgentsPage } from '@pages/OfficeAgentsPage';
 import { DesignHubPage } from '@pages/DesignHubPage';
-import { MyDashboardPage } from '@pages/MyDashboardPage';
-import { AnalyticsPage } from '@pages/AnalyticsPage';
-import { ReportsPage } from '@pages/ReportsPage';
+import { ClientDetailPage } from '@pages/ClientDetailPage';
+import { ProjectDetailPage } from '@pages/ProjectDetailPage';
+import { AgentDetailPage } from '@pages/AgentDetailPage';
 import { SettingsPage } from '@pages/SettingsPage';
-import { LoginPage } from '@pages/LoginPage';
-import { ProtectedRoute } from '@components/auth/ProtectedRoute';
 
 function App() {
     return (
         <Routes>
-            {/* Public route - Login */}
-            <Route path="/login" element={<LoginPage />} />
-
-            {/* Protected routes */}
-            <Route
-                path="/"
-                element={
-                    <ProtectedRoute>
-                        <OfficeLayout />
-                    </ProtectedRoute>
-                }
-            >
+            <Route path="/" element={<OfficeLayout />}>
                 <Route index element={<OfficeDashboardPage />} />
-                <Route path="my-dashboard" element={<MyDashboardPage />} />
+
+                {/* Projects */}
                 <Route path="projects" element={<OfficeProjectsPage />} />
+                <Route path="projects/:id" element={<ProjectDetailPage />} />
+
+                {/* Clients */}
                 <Route path="clients" element={<OfficeClientsPage />} />
+                <Route path="clients/:id" element={<ClientDetailPage />} />
+
+                {/* Agents / Team */}
                 <Route path="agents" element={<OfficeAgentsPage />} />
-                <Route path="analytics" element={<AnalyticsPage />} />
-                <Route path="reports" element={<ReportsPage />} />
-                <Route path="design-hub" element={<DesignHubPage />} />
+                <Route path="agents/:id" element={<AgentDetailPage />} />
+
+                {/* Settings & Admin */}
                 <Route path="settings" element={<SettingsPage />} />
+
+                {/* Design Hub */}
+                <Route path="design-hub" element={<DesignHubPage />} />
+
                 {/* Future routes */}
-                {/* <Route path="projects/:id" element={<OfficeProjectDetailPage />} /> */}
+                {/* <Route path="analytics" element={<OfficeAnalyticsPage />} /> */}
+                {/* <Route path="reports" element={<OfficeReportsPage />} /> */}
+
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
         </Routes>

@@ -9,6 +9,8 @@ const drizzle_orm_1 = require("drizzle-orm");
 const projects_js_1 = require("./projects.js");
 const agents_js_1 = require("./agents.js");
 const users_js_1 = require("./users.js");
+const epics_js_1 = require("./epics.js");
+const sprints_js_1 = require("./sprints.js");
 // Task status enum
 exports.taskStatusEnum = (0, mysql_core_1.mysqlEnum)('status', [
     'pending',
@@ -25,6 +27,8 @@ exports.tasks = (0, mysql_core_1.mysqlTable)('tasks', {
     title: (0, mysql_core_1.varchar)('title', { length: 300 }).notNull(),
     description: (0, mysql_core_1.text)('description'),
     projectId: (0, mysql_core_1.int)('project_id').references(() => projects_js_1.projects.id, { onDelete: 'cascade' }),
+    epicId: (0, mysql_core_1.int)('epic_id').references(() => epics_js_1.epics.id, { onDelete: 'set null' }),
+    sprintId: (0, mysql_core_1.int)('sprint_id').references(() => sprints_js_1.sprints.id, { onDelete: 'set null' }),
     agentId: (0, mysql_core_1.int)('agent_id').references(() => agents_js_1.aiAgents.id, { onDelete: 'set null' }),
     assignedAgentId: (0, mysql_core_1.int)('assigned_agent_id').references(() => agents_js_1.aiAgents.id, { onDelete: 'set null' }),
     assignedBy: (0, mysql_core_1.int)('assigned_by').references(() => users_js_1.users.id, { onDelete: 'set null' }),
@@ -86,6 +90,14 @@ exports.tasksRelations = (0, drizzle_orm_1.relations)(exports.tasks, ({ one, man
     project: one(projects_js_1.projects, {
         fields: [exports.tasks.projectId],
         references: [projects_js_1.projects.id],
+    }),
+    epic: one(epics_js_1.epics, {
+        fields: [exports.tasks.epicId],
+        references: [epics_js_1.epics.id],
+    }),
+    sprint: one(sprints_js_1.sprints, {
+        fields: [exports.tasks.sprintId],
+        references: [sprints_js_1.sprints.id],
     }),
     agent: one(agents_js_1.aiAgents, {
         fields: [exports.tasks.agentId],

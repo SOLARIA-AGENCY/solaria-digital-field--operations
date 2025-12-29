@@ -67,6 +67,7 @@ export const projectsApi = {
 // Epics API
 export const epicsApi = {
     getByProject: (projectId) => api.get(`/projects/${projectId}/epics`),
+    getById: (id) => api.get(`/epics/${id}`),
     create: (projectId, data) => api.post(`/projects/${projectId}/epics`, data),
     update: (id, data) => api.put(`/epics/${id}`, data),
     delete: (id) => api.delete(`/epics/${id}`),
@@ -74,6 +75,8 @@ export const epicsApi = {
 // Sprints API
 export const sprintsApi = {
     getByProject: (projectId) => api.get(`/projects/${projectId}/sprints`),
+    getById: (id) => api.get(`/sprints/${id}`),
+    getFullHierarchy: (id) => api.get(`/sprints/${id}/full`),
     create: (projectId, data) => api.post(`/projects/${projectId}/sprints`, data),
     update: (id, data) => api.put(`/sprints/${id}`, data),
     delete: (id) => api.delete(`/sprints/${id}`),
@@ -132,5 +135,14 @@ export const csuiteApi = {
     getCTO: () => api.get('/csuite/cto'),
     getCOO: () => api.get('/csuite/coo'),
     getCFO: () => api.get('/csuite/cfo'),
+};
+// Inline Documents API
+export const documentsApi = {
+    getByProject: (projectId, type) => api.get(`/projects/${projectId}/documents/inline`, { params: { type } }),
+    getById: (id) => api.get(`/documents/inline/${id}`),
+    create: (projectId, data) => api.post(`/projects/${projectId}/documents/inline`, data),
+    update: (id, data) => api.put(`/documents/inline/${id}`, data),
+    delete: (id) => api.delete(`/documents/inline/${id}`),
+    search: (query, projectId, type) => api.get('/documents/inline/search', { params: { query, project_id: projectId, type } }),
 };
 //# sourceMappingURL=api.js.map

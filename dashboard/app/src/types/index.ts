@@ -33,6 +33,8 @@ export interface Project {
     tasksTotal?: number;
     tasksCompleted?: number;
     tasksPending?: number;
+    tasksInProgress?: number;
+    tasksBlocked?: number;
     activeAgents?: number;
     // Optional URL fields
     productionUrl?: string;
@@ -113,6 +115,7 @@ export interface TaskTag {
 export interface Epic {
     id: number;
     projectId: number;
+    sprintId?: number;
     epicNumber: number;
     name: string;
     description?: string;
@@ -123,9 +126,13 @@ export interface Epic {
     createdBy?: number;
     createdAt: string;
     updatedAt: string;
-    // Extended fields
+    // Extended fields from joins
     tasksTotal?: number;
     tasksCompleted?: number;
+    progress?: number;
+    sprintName?: string;
+    sprintNumber?: number;
+    sprintStatus?: string;
 }
 
 export interface Sprint {
@@ -139,12 +146,17 @@ export interface Sprint {
     endDate?: string;
     velocity: number;
     capacity: number;
+    phaseType?: 'planning' | 'development' | 'testing' | 'deployment' | 'maintenance' | 'custom';
+    phaseOrder?: number;
     createdBy?: number;
     createdAt: string;
     updatedAt: string;
-    // Extended fields
+    // Extended fields from joins
     tasksTotal?: number;
     tasksCompleted?: number;
+    progress?: number;
+    epicsTotal?: number;
+    epicsCompleted?: number;
 }
 
 export interface Agent {
@@ -243,4 +255,20 @@ export interface PaginatedResponse<T> {
     total: number;
     page: number;
     limit: number;
+}
+
+// Inline Documents
+export interface InlineDocument {
+    id: number;
+    projectId: number;
+    name: string;
+    type: 'plan' | 'spec' | 'report' | 'manual' | 'adr' | 'roadmap' | 'audit' | 'other';
+    contentMd: string;
+    version: number;
+    isActive: boolean;
+    createdByAgentId?: number;
+    changeSummary?: string;
+    archivedAt?: string;
+    createdAt: string;
+    updatedAt: string;
 }

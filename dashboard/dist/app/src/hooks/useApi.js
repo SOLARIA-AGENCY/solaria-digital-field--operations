@@ -1,5 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectsApi, tasksApi, tagsApi, agentsApi, memoriesApi, dashboardApi, authApi, epicsApi, sprintsApi, } from '@/lib/api';
+import { projectsApi, tasksApi, tagsApi, agentsApi, memoriesApi, dashboardApi, authApi, epicsApi, sprintsApi, documentsApi, } from '@/lib/api';
+/**
+ * Transform raw API project data to frontend Project type
+ * Handles both snake_case (raw API) and camelCase (axios interceptor transformed) fields
+ */
+function transformProjectData(p) {
+    const base = p;
+    return {
+        ...base,
+        tasksTotal: (p.totalTasks ?? p.total_tasks ?? 0),
+        tasksCompleted: (p.completedTasks ?? p.completed_tasks ?? 0),
+        tasksPending: (p.pendingTasks ?? p.pending_tasks ?? 0),
+        activeAgents: (p.agentsAssigned ?? p.agents_assigned ?? 0),
+        // Prefer budgetAllocated, fallback to budget
+        budgetAllocated: (p.budgetAllocated ?? p.budget ?? 0),
+        budgetSpent: (p.actualCost ?? p.actual_cost ?? 0),
+    };
+}
 // Auth hooks
 export function useVerifyAuth() {
     return useQuery({
@@ -56,15 +73,7 @@ export function useProjects() {
             const projects = data.projects || data.data || [];
             // Map API fields to frontend types
             // Note: axios interceptor transforms snake_case to camelCase (total_tasks -> totalTasks)
-            return projects.map((p) => ({
-                ...p,
-                tasksTotal: p.totalTasks ?? p.total_tasks ?? 0,
-                tasksCompleted: p.completedTasks ?? p.completed_tasks ?? 0,
-                tasksPending: p.pendingTasks ?? p.pending_tasks ?? 0,
-                activeAgents: p.agentsAssigned ?? p.agents_assigned ?? 0,
-                budgetAllocated: p.budget ?? p.budgetAllocated ?? 0,
-                budgetSpent: p.actualCost ?? p.actual_cost ?? 0,
-            }));
+            return projects.map((p) => transformProjectData(p));
         },
     });
 }
@@ -75,17 +84,7 @@ export function useProject(id) {
             const { data } = await projectsApi.getById(id);
             // API returns { project: {...}, tasks: [...] }
             const p = data.project || data.data || data;
-            // Map API fields to frontend types
-            // Note: axios interceptor transforms snake_case to camelCase
-            return {
-                ...p,
-                tasksTotal: p.totalTasks ?? p.total_tasks ?? 0,
-                tasksCompleted: p.completedTasks ?? p.completed_tasks ?? 0,
-                tasksPending: p.pendingTasks ?? p.pending_tasks ?? 0,
-                activeAgents: p.agentsAssigned ?? p.agents_assigned ?? 0,
-                budgetAllocated: p.budget ?? p.budgetAllocated ?? 0,
-                budgetSpent: p.actualCost ?? p.actual_cost ?? 0,
-            };
+            return transformProjectData(p);
         },
         enabled: !!id,
     });
@@ -125,9 +124,10 @@ export function useTask(id) {
         queryKey: ['tasks', id],
         queryFn: async () => {
             const { data } = await tasksApi.getById(id);
-            return data.data;
+            // API returns { task: {...} } or { data: {...} } or task directly
+            return (data.task || data.data || data);
         },
-        enabled: !!id,
+        enabled: !!id && id > 0,
     });
 }
 export function useCreateTask() {
@@ -176,9 +176,10 @@ export function useAgent(id) {
         queryKey: ['agents', id],
         queryFn: async () => {
             const { data } = await agentsApi.getById(id);
-            return data.data;
+            // API returns { agent: {...} } or { data: {...} } or agent directly
+            return (data.agent || data.data || data);
         },
-        enabled: !!id,
+        enabled: !!id && id > 0,
     });
 }
 export function useAgentTasks(agentId, status) {
@@ -186,19 +187,30 @@ export function useAgentTasks(agentId, status) {
         queryKey: ['agents', agentId, 'tasks', status],
         queryFn: async () => {
             const { data } = await agentsApi.getTasks(agentId, status);
-            return data.data;
+            // API returns { tasks: [...] } or { data: [...] } or array directly
+            return (data.tasks || data.data || data || []);
         },
-        enabled: !!agentId,
+        enabled: !!agentId && agentId > 0,
     });
 }
 // Memories hooks
 export function useMemories(filters) {
+    // Create stable queryKey - only include non-empty values
+    const tagsKey = filters?.tags?.length ? filters.tags.join(',') : '';
+    const projectId = filters?.projectId;
     return useQuery({
-        queryKey: ['memories', filters],
+        queryKey: ['memories', { projectId, tags: tagsKey }],
         queryFn: async () => {
-            const { data } = await memoriesApi.getAll(filters);
+            // Only send params if they have values
+            const params = {};
+            if (projectId)
+                params.projectId = projectId;
+            if (tagsKey)
+                params.tags = JSON.stringify(filters.tags);
+            const { data } = await memoriesApi.getAll(Object.keys(params).length > 0 ? params : undefined);
             // API returns { memories: [...] }
-            return (data.memories || data.data || data || []);
+            const memories = data?.memories || data?.data || data || [];
+            return Array.isArray(memories) ? memories : [];
         },
     });
 }
@@ -207,9 +219,10 @@ export function useMemory(id) {
         queryKey: ['memories', id],
         queryFn: async () => {
             const { data } = await memoriesApi.getById(id);
-            return data.data;
+            // API returns { memory: {...} } or { data: {...} } or memory directly
+            return (data.memory || data.data || data);
         },
-        enabled: !!id,
+        enabled: !!id && id > 0,
     });
 }
 export function useSearchMemories(query, tags) {
@@ -260,6 +273,17 @@ export function useBoostMemory() {
             queryClient.invalidateQueries({ queryKey: ['memories'] });
             queryClient.invalidateQueries({ queryKey: ['memories', id] });
         },
+    });
+}
+export function useMemoryRelated(id) {
+    return useQuery({
+        queryKey: ['memories', id, 'related'],
+        queryFn: async () => {
+            const { data } = await memoriesApi.getRelated(id);
+            // API returns { related: [...] } or array directly
+            return (data.related || data.data || data || []);
+        },
+        enabled: !!id,
     });
 }
 // ============================================================
@@ -484,6 +508,19 @@ export function useDeleteEpic() {
         },
     });
 }
+// Get single epic with tasks
+export function useEpic(epicId) {
+    return useQuery({
+        queryKey: ['epics', epicId],
+        queryFn: async () => {
+            if (!epicId)
+                return null;
+            const { data } = await epicsApi.getById(epicId);
+            return data;
+        },
+        enabled: !!epicId,
+    });
+}
 // ============================================================
 // Sprints hooks
 // ============================================================
@@ -523,6 +560,92 @@ export function useDeleteSprint() {
             queryClient.invalidateQueries({ queryKey: ['projects', variables.projectId, 'sprints'] });
             queryClient.invalidateQueries({ queryKey: ['tasks'] }); // Tasks may have sprint assignments
         },
+    });
+}
+// Get single sprint with tasks
+export function useSprint(sprintId) {
+    return useQuery({
+        queryKey: ['sprints', sprintId],
+        queryFn: async () => {
+            if (!sprintId)
+                return null;
+            const { data } = await sprintsApi.getById(sprintId);
+            return data;
+        },
+        enabled: !!sprintId,
+    });
+}
+export function useSprintFullHierarchy(sprintId) {
+    return useQuery({
+        queryKey: ['sprints', sprintId, 'full'],
+        queryFn: async () => {
+            if (!sprintId)
+                return null;
+            const { data } = await sprintsApi.getFullHierarchy(sprintId);
+            return data;
+        },
+        enabled: !!sprintId,
+    });
+}
+// ============================================================
+// Inline Documents hooks
+// ============================================================
+export function useProjectInlineDocuments(projectId, type) {
+    return useQuery({
+        queryKey: ['projects', projectId, 'documents', 'inline', type],
+        queryFn: async () => {
+            const { data } = await documentsApi.getByProject(projectId, type);
+            return (data.documents || data.data || data || []);
+        },
+        enabled: !!projectId,
+    });
+}
+export function useInlineDocument(id) {
+    return useQuery({
+        queryKey: ['documents', 'inline', id],
+        queryFn: async () => {
+            const { data } = await documentsApi.getById(id);
+            return (data.document || data.data || data);
+        },
+        enabled: !!id && id > 0,
+    });
+}
+export function useCreateInlineDocument() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ projectId, data }) => documentsApi.create(projectId, data),
+        onSuccess: (_, { projectId }) => {
+            queryClient.invalidateQueries({ queryKey: ['projects', projectId, 'documents', 'inline'] });
+        },
+    });
+}
+export function useUpdateInlineDocument() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, data }) => documentsApi.update(id, data),
+        onSuccess: (_, { id, projectId }) => {
+            queryClient.invalidateQueries({ queryKey: ['documents', 'inline', id] });
+            queryClient.invalidateQueries({ queryKey: ['projects', projectId, 'documents', 'inline'] });
+        },
+    });
+}
+export function useDeleteInlineDocument() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id }) => documentsApi.delete(id),
+        onSuccess: (_, { projectId }) => {
+            queryClient.invalidateQueries({ queryKey: ['projects', projectId, 'documents', 'inline'] });
+        },
+    });
+}
+export function useSearchInlineDocuments(query, projectId, type) {
+    return useQuery({
+        queryKey: ['documents', 'inline', 'search', query, projectId, type],
+        queryFn: async () => {
+            const { data } = await documentsApi.search(query, projectId, type);
+            return (data.documents || data.data || data || []);
+        },
+        enabled: query.length > 2,
     });
 }
 //# sourceMappingURL=useApi.js.map

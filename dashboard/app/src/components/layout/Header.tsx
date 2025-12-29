@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Moon, Sun, LogOut, User, Wifi, WifiOff, Settings, ChevronDown, AlertTriangle, Info, CheckCircle, X, Activity, FolderKanban, ListTodo, Brain, Bot, Zap } from 'lucide-react';
+import { Bell, Moon, Sun, LogOut, User, Settings, ChevronDown, AlertTriangle, Info, CheckCircle, X, Activity, FolderKanban, ListTodo, Brain, Bot, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { useDashboardAlerts } from '@/hooks/useApi';
-import { useSocketContext } from '@/contexts/SocketContext';
 import { useNotifications, Notification } from '@/contexts/NotificationContext';
 import { cn, formatRelativeTime } from '@/lib/utils';
 
@@ -22,7 +21,6 @@ export function Header() {
     const { user, logout } = useAuthStore();
     const { theme, toggleTheme } = useUIStore();
     const { data: alerts } = useDashboardAlerts();
-    const { isConnected } = useSocketContext();
     const { notifications, unreadCount, markAllAsRead, dismissNotification, clearAll } = useNotifications();
 
     const [showNotifications, setShowNotifications] = useState(false);
@@ -120,28 +118,6 @@ export function Header() {
 
             {/* Right section */}
             <div className="flex items-center gap-2">
-                {/* Socket connection status */}
-                <div
-                    className={cn(
-                        'flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs',
-                        isConnected
-                            ? 'bg-green-500/10 text-green-500'
-                            : 'bg-red-500/10 text-red-500'
-                    )}
-                >
-                    {isConnected ? (
-                        <>
-                            <Wifi className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">En vivo</span>
-                        </>
-                    ) : (
-                        <>
-                            <WifiOff className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Offline</span>
-                        </>
-                    )}
-                </div>
-
                 {/* Notifications Dropdown */}
                 <div className="relative" ref={notifRef}>
                     <button

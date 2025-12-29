@@ -10,9 +10,11 @@ import {
     ChevronLeft,
     ChevronRight,
     ExternalLink,
+    LayoutTemplate,
 } from 'lucide-react';
 import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils';
+import VERSION from '@/version';
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -21,10 +23,17 @@ const navigation = [
     { name: 'Infraestructura', href: '/infrastructure', icon: Server },
     { name: 'Design Hub', href: '/design-hub', icon: Palette },
     { name: 'Memorias', href: '/memories', icon: Brain },
+    { name: 'Oficina', href: '/office', icon: LayoutTemplate },
     { name: 'Archivo', href: '/projects/archived', icon: Archive },
 ];
 
 const externalLinks = [
+    {
+        name: 'n8n Workflows',
+        href: 'https://n8n.solaria.agency',
+        icon: ExternalLink,
+        color: 'text-orange-400'
+    },
     {
         name: 'VibeSDK',
         href: 'https://docs.vibe-sdk.com',
@@ -44,7 +53,10 @@ export function Sidebar() {
             )}
         >
             {/* Logo */}
-            <div className="flex h-16 items-center justify-between border-b border-border px-4">
+            <div className={cn(
+                "flex h-16 items-center border-b border-border px-4",
+                sidebarOpen ? "justify-start" : "justify-center"
+            )}>
                 {sidebarOpen ? (
                     <div className="flex items-center gap-3">
                         <img
@@ -55,32 +67,18 @@ export function Sidebar() {
                                 e.currentTarget.style.display = 'none';
                             }}
                         />
-                        <div className="flex flex-col">
-                            <span className="font-bold text-lg solaria-text-gradient">SOLARIA</span>
-                            <span className="text-[10px] text-muted-foreground -mt-1">Digital Field Operations</span>
-                        </div>
+                        <span className="font-bold text-lg solaria-text-gradient">SOLARIA</span>
                     </div>
                 ) : (
                     <img
                         src="/solaria-logo.png"
                         alt="S"
-                        className="h-8 w-8 mx-auto"
+                        className="h-8 w-8"
                         onError={(e) => {
                             e.currentTarget.style.display = 'none';
                         }}
                     />
                 )}
-                <button
-                    onClick={toggleSidebar}
-                    className="p-2 rounded-lg hover:bg-accent transition-colors"
-                    aria-label={sidebarOpen ? 'Colapsar sidebar' : 'Expandir sidebar'}
-                >
-                    {sidebarOpen ? (
-                        <ChevronLeft className="h-5 w-5" />
-                    ) : (
-                        <ChevronRight className="h-5 w-5" />
-                    )}
-                </button>
             </div>
 
             {/* Main Navigation */}
@@ -145,17 +143,44 @@ export function Sidebar() {
             </nav>
 
             {/* Footer */}
-            {sidebarOpen && (
-                <div className="p-4 border-t border-border">
-                    <div className="rounded-lg bg-accent/50 p-3 text-center">
-                        <div className="text-xs text-muted-foreground">
-                            <span className="solaria-text-gradient font-semibold">SOLARIA</span>
-                            <span> DFO</span>
+            <div className="border-t border-border">
+                {sidebarOpen ? (
+                    <div className="flex flex-col">
+                        {/* Version info */}
+                        <div className="p-4 pb-2">
+                            <div className="rounded-lg bg-accent/50 p-3 text-center">
+                                <div className="text-xs text-muted-foreground">
+                                    <span className="solaria-text-gradient font-semibold">SOLARIA</span>
+                                    <span> DFO</span>
+                                </div>
+                                <div className="mt-1 text-[10px] text-muted-foreground font-mono">
+                                    {VERSION.full}
+                                </div>
+                            </div>
                         </div>
-                        <div className="mt-1 text-[10px] text-muted-foreground">v3.5.1</div>
+                        {/* Collapse button - same height as GlobalFooter */}
+                        <div className="h-10 border-t border-border flex items-center px-4">
+                            <button
+                                onClick={toggleSidebar}
+                                className="ml-auto flex items-center justify-center rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground p-1"
+                                aria-label="Colapsar sidebar"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </button>
+                        </div>
                     </div>
-                </div>
-            )}
+                ) : (
+                    <div className="h-10 flex items-center justify-center">
+                        <button
+                            onClick={toggleSidebar}
+                            className="flex items-center justify-center p-1 rounded-lg hover:bg-accent transition-colors"
+                            aria-label="Expandir sidebar"
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
+                    </div>
+                )}
+            </div>
         </aside>
     );
 }

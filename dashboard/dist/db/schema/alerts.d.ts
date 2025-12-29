@@ -361,7 +361,7 @@ export declare const activityLogs: import("drizzle-orm/mysql-core").MySqlTableWi
             tableName: "activity_logs";
             dataType: "string";
             columnType: "MySqlEnumColumn";
-            data: "critical" | "error" | "warning" | "info" | "debug";
+            data: "error" | "critical" | "warning" | "info" | "debug";
             driverParam: string;
             notNull: false;
             hasDefault: true;

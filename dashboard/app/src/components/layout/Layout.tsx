@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { GlobalFooter } from './GlobalFooter';
 import { useUIStore } from '@/store/ui';
 import { cn } from '@/lib/utils';
 
@@ -28,12 +29,13 @@ export function Layout() {
                 <Header />
                 <main
                     className={cn(
-                        'main-content flex-1 overflow-auto',
-                        isFullViewport ? 'p-3' : 'p-6'
+                        'main-content flex-1 overflow-auto pb-12',
+                        isFullViewport ? 'p-3 pb-12' : 'p-6 pb-12'
                     )}
                 >
                     <Outlet />
                 </main>
+                <GlobalFooter />
             </div>
         </div>
     );

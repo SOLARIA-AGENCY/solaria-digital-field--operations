@@ -91,6 +91,40 @@ export declare const tasks: import("drizzle-orm/mysql-core").MySqlTableWithColum
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        epicId: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "epic_id";
+            tableName: "tasks";
+            dataType: "number";
+            columnType: "MySqlInt";
+            data: number;
+            driverParam: string | number;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
+        sprintId: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "sprint_id";
+            tableName: "tasks";
+            dataType: "number";
+            columnType: "MySqlInt";
+            data: number;
+            driverParam: string | number;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         agentId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "agent_id";
             tableName: "tasks";
@@ -763,6 +797,8 @@ export declare const taskTagAssignments: import("drizzle-orm/mysql-core").MySqlT
 }>;
 export declare const tasksRelations: import("drizzle-orm").Relations<"tasks", {
     project: import("drizzle-orm").One<"projects", false>;
+    epic: import("drizzle-orm").One<"epics", false>;
+    sprint: import("drizzle-orm").One<"sprints", false>;
     agent: import("drizzle-orm").One<"ai_agents", false>;
     assignedAgent: import("drizzle-orm").One<"ai_agents", false>;
     assignedByUser: import("drizzle-orm").One<"users", false>;

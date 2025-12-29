@@ -19,6 +19,7 @@ import { BusinessesPage } from '@/pages/BusinessesPage';
 import { InfrastructurePage } from '@/pages/InfrastructurePage';
 import { DesignHubPage } from '@/pages/DesignHubPage';
 import { MemoriesPage } from '@/pages/MemoriesPage';
+import { OfficePage } from '@/pages/OfficePage';
 
 function LoadingScreen() {
     return (
@@ -77,6 +78,7 @@ function App() {
                 <Route path="infrastructure" element={<InfrastructurePage />} />
                 <Route path="design-hub" element={<DesignHubPage />} />
                 <Route path="memories" element={<MemoriesPage />} />
+                <Route path="office" element={<OfficePage />} />
                 <Route path="settings" element={<SettingsPage />} />
             </Route>
         </Routes>

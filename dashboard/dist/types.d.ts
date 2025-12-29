@@ -498,6 +498,28 @@ export interface ServerToClientEvents {
         name: string;
         projectId: number;
     }) => void;
+    'project:created': (data: {
+        projectId: number;
+        name: string;
+        code: string;
+        priority: string;
+    }) => void;
+    'project:updated': (data: {
+        projectId: number;
+        name?: string;
+        status?: string;
+        progress?: number;
+    }) => void;
+    'project:deleted': (data: {
+        projectId: number;
+        name: string;
+        code: string;
+    }) => void;
+    'project:archived': (data: {
+        projectId: number;
+        name: string;
+        archived: boolean;
+    }) => void;
 }
 export interface ClientToServerEvents {
     authenticate: (token: string) => void;
